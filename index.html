@@ -79,14 +79,7 @@ header{height:var(--header-h);background:var(--navy);display:flex;align-items:ce
 
 /* SIDEBAR */
 nav{width:var(--sidebar-w);flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto;transition:width 0.2s;}
-nav.collapsed{width:44px;overflow:hidden;}
-nav.collapsed .nav-label,nav.collapsed .nav-badge,nav.collapsed .nav-overdue-badge{display:none;}
-nav.collapsed .nav-item{justify-content:center;padding:8px 0;width:36px;margin:1px 4px;}
-nav.collapsed .nav-item span:not(.nav-dot):not(.nav-badge):not(.nav-overdue-badge){display:none;}
-nav.collapsed .nav-collapse-btn svg{transform:rotate(180deg);}
-.nav-collapse-btn{display:flex;align-items:center;justify-content:flex-end;padding:6px 8px;border:none;background:none;cursor:pointer;color:var(--text3);width:100%;}
-.nav-collapse-btn:hover{color:var(--text);}
-nav.collapsed .nav-collapse-btn{justify-content:center;}
+.nav-collapse-btn{display:none;}
 .nav-top{padding:10px 8px;border-bottom:1px solid var(--border);}
 .nav-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text3);padding:10px 10px 3px;}
 .nav-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:var(--radius);cursor:pointer;font-size:13px;color:var(--text2);border:none;background:none;width:calc(100% - 8px);margin:1px 4px;text-align:left;transition:all 0.12s;position:relative;}
@@ -96,7 +89,7 @@ nav.collapsed .nav-collapse-btn{justify-content:center;}
 .nav-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
 .nav-badge{margin-left:auto;font-size:10px;font-weight:700;padding:1px 6px;border-radius:20px;background:var(--grey-light);color:var(--text3);}
 .nav-item.active .nav-badge{background:var(--navy);color:#fff;}
-.nav-overdue-badge{font-size:9px;font-weight:700;padding:1px 5px;border-radius:20px;background:var(--red);color:#fff;margin-left:3px;}
+.nav-overdue-badge{font-size:9px;font-weight:700;padding:1px 5px;border-radius:20px;background:var(--red);color:#fff;margin-left:3px;min-width:16px;text-align:center;}
 
 /* MAIN */
 main{flex:1;overflow-y:auto;padding:20px 24px;display:flex;flex-direction:column;gap:16px;scroll-behavior:smooth;-webkit-overflow-scrolling:touch;}main.gantt-mode{padding:16px 0 0 0;gap:12px;overflow:hidden;}
@@ -439,20 +432,18 @@ thead th{position:sticky;top:0;z-index:2;background:var(--grey-light);}
   <div class="modal">
     <div class="modal-title" id="taskModalTitle">Add task</div>
     <div class="form-row"><label>Task name *</label><input type="text" id="f-task" placeholder="e.g. Weekly Lean Practice post on LinkedIn"/></div>
-    <div class="form-2col">
-      <div class="form-row"><label>Channel</label><select id="f-channel"></select></div>
-      <div class="form-row"><label>Relates to</label>
-        <div style="display:flex;gap:5px;flex-wrap:wrap;padding:4px 0;">
-          <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;text-transform:none;letter-spacing:0;color:var(--text);background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);padding:4px 8px;font-weight:400;"><input type="checkbox" value="Lean Practice Book" class="relates-cb" style="accent-color:var(--navy);"> Lean Practice Book</label>
-          <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;text-transform:none;letter-spacing:0;color:var(--text);background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);padding:4px 8px;font-weight:400;"><input type="checkbox" value="Books" class="relates-cb" style="accent-color:var(--navy);"> Books</label>
-          <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;text-transform:none;letter-spacing:0;color:var(--text);background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);padding:4px 8px;font-weight:400;"><input type="checkbox" value="Learning Materials" class="relates-cb" style="accent-color:var(--navy);"> Learning Materials</label>
-          <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;text-transform:none;letter-spacing:0;color:var(--text);background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);padding:4px 8px;font-weight:400;"><input type="checkbox" value="Learning Platform" class="relates-cb" style="accent-color:var(--navy);"> Learning Platform</label>
-          <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;text-transform:none;letter-spacing:0;color:var(--text);background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);padding:4px 8px;font-weight:400;"><input type="checkbox" value="Co-Learning Project" class="relates-cb" style="accent-color:var(--navy);"> Co-Learning Project</label>
-          <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;text-transform:none;letter-spacing:0;color:var(--text);background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);padding:4px 8px;font-weight:400;"><input type="checkbox" value="UK Lean Summit" class="relates-cb" style="accent-color:var(--navy);"> UK Lean Summit</label>
-          <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;text-transform:none;letter-spacing:0;color:var(--text);background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);padding:4px 8px;font-weight:400;"><input type="checkbox" value="Workshops" class="relates-cb" style="accent-color:var(--navy);"> Workshops</label>
-          <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;text-transform:none;letter-spacing:0;color:var(--text);background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);padding:4px 8px;font-weight:400;"><input type="checkbox" value="General / Informative" class="relates-cb" style="accent-color:var(--navy);"> General / Informative</label>
-          <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;text-transform:none;letter-spacing:0;color:var(--text);background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);padding:4px 8px;font-weight:400;"><input type="checkbox" value="Other" class="relates-cb" style="accent-color:var(--navy);"> Other</label>
-        </div>
+    <div class="form-row"><label>Channel</label><select id="f-channel"></select></div>
+    <div class="form-row"><label>Relates to</label>
+      <div style="display:flex;gap:5px;flex-wrap:wrap;padding:4px 0;">
+        <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;text-transform:none;letter-spacing:0;color:var(--text);background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);padding:4px 8px;font-weight:400;"><input type="checkbox" value="Lean Practice Book" class="relates-cb" style="accent-color:var(--navy);"> Lean Practice Book</label>
+        <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;text-transform:none;letter-spacing:0;color:var(--text);background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);padding:4px 8px;font-weight:400;"><input type="checkbox" value="Books" class="relates-cb" style="accent-color:var(--navy);"> Books</label>
+        <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;text-transform:none;letter-spacing:0;color:var(--text);background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);padding:4px 8px;font-weight:400;"><input type="checkbox" value="Learning Materials" class="relates-cb" style="accent-color:var(--navy);"> Learning Materials</label>
+        <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;text-transform:none;letter-spacing:0;color:var(--text);background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);padding:4px 8px;font-weight:400;"><input type="checkbox" value="Learning Platform" class="relates-cb" style="accent-color:var(--navy);"> Learning Platform</label>
+        <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;text-transform:none;letter-spacing:0;color:var(--text);background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);padding:4px 8px;font-weight:400;"><input type="checkbox" value="Co-Learning Project" class="relates-cb" style="accent-color:var(--navy);"> Co-Learning Project</label>
+        <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;text-transform:none;letter-spacing:0;color:var(--text);background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);padding:4px 8px;font-weight:400;"><input type="checkbox" value="UK Lean Summit" class="relates-cb" style="accent-color:var(--navy);"> UK Lean Summit</label>
+        <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;text-transform:none;letter-spacing:0;color:var(--text);background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);padding:4px 8px;font-weight:400;"><input type="checkbox" value="Workshops" class="relates-cb" style="accent-color:var(--navy);"> Workshops</label>
+        <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;text-transform:none;letter-spacing:0;color:var(--text);background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);padding:4px 8px;font-weight:400;"><input type="checkbox" value="General / Informative" class="relates-cb" style="accent-color:var(--navy);"> General / Informative</label>
+        <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;text-transform:none;letter-spacing:0;color:var(--text);background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);padding:4px 8px;font-weight:400;"><input type="checkbox" value="Other" class="relates-cb" style="accent-color:var(--navy);"> Other</label>
       </div>
     </div>
     <div class="form-2col">
@@ -1272,23 +1263,13 @@ function renderSidebar(){
     const chOv=S.tasks.filter(t=>t.channel===ch.key&&isOverdue(t)).length;
     var chBtn=document.createElement('button');
     chBtn.className='nav-item'+(S.activeChannel===ch.key?' active':'');
-    chBtn.innerHTML='<span class="nav-dot" style="background:'+ch.color+'"></span>'+esc(ch.label)+'<span class="nav-badge">'+p.total+'</span>'+(chOv>0?'<span class="nav-overdue-badge">'+chOv+' overdue</span>':'');
+    chBtn.innerHTML='<span class="nav-dot" style="background:'+ch.color+'"></span>'+esc(ch.label)+'<span class="nav-badge">'+p.total+'</span>'+(chOv>0?'<span class="nav-overdue-badge" title="'+chOv+' overdue">'+chOv+'</span>':'');
     chBtn.onclick=(function(k){return function(){setChannel(k);};})(ch.key);
     navEl.appendChild(chBtn);
   }
 
   document.getElementById('sidebar').innerHTML='';
   document.getElementById('sidebar').appendChild(navEl);
-  // Apply collapsed state
-  if(S.sidebarCollapsed){document.getElementById('sidebar').classList.add('collapsed');}
-  else{document.getElementById('sidebar').classList.remove('collapsed');}
-  // Add collapse toggle button at the bottom
-  var colBtn=document.createElement('button');
-  colBtn.className='nav-collapse-btn';
-  colBtn.title=S.sidebarCollapsed?'Expand sidebar':'Collapse sidebar';
-  colBtn.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>';
-  colBtn.onclick=function(){S.sidebarCollapsed=!S.sidebarCollapsed;renderSidebar();};
-  document.getElementById('sidebar').appendChild(colBtn);
 }
 
 function setChannel(k){
@@ -1760,14 +1741,14 @@ function renderGantt(){
     </div>
     <!-- Navigation -->
     <div class="date-nav">
-      <button class="dnb" onclick="ganttOffset--;renderGantt();">&#8249;</button>
+      <button class="dnb" onclick="ganttOffset--;renderGantt();" title="Previous period">&#8249;</button>
       <button class="dnb" onclick="ganttOffset=0;renderGantt();" style="font-size:10px;font-weight:700;font-family:var(--font);width:auto;padding:0 8px;">Today</button>
-      <button class="dnb" onclick="ganttOffset++;renderGantt();">&#8250;</button>
+      <button class="dnb" onclick="ganttOffset++;renderGantt();" title="Next period">&#8250;</button>
     </div>
     <!-- Horizontal scroll buttons -->
-    <div class="date-nav" style="margin-left:4px;">
-      <button class="dnb" onclick="scrollGantt(-200)" title="Scroll left">&#8592;</button>
-      <button class="dnb" onclick="scrollGantt(200)" title="Scroll right">&#8594;</button>
+    <div class="date-nav" style="margin-left:4px;" title="Scroll chart left/right">
+      <button class="dnb" onclick="scrollGantt(-200)" title="Scroll chart left" style="font-size:11px;">&#8592;</button>
+      <button class="dnb" onclick="scrollGantt(200)" title="Scroll chart right" style="font-size:11px;">&#8594;</button>
     </div>
     <span style="font-size:13px;font-weight:700;color:#fff;">${ganttPeriodLabel(rangeStart,rangeEnd)}</span>
     <!-- Jump to task search -->
@@ -2300,23 +2281,73 @@ function renderTeamView(){
   var h='<div class="page-header"><div><div class="page-title">Team view</div>';
   h+='<div class="page-sub">Tasks by owner across all channels</div></div></div>';
   h+=dateBanner();
+
   OWNERS.forEach(function(owner){
-    var tasks=visibleTasks(S.tasks.filter(function(t){return getOwners(t).indexOf(owner.value)>-1;}));
+    var allTasks=S.tasks.filter(function(t){return getOwners(t).indexOf(owner.value)>-1;});
+    var tasks=visibleTasks(allTasks);
     var done=tasks.filter(function(t){return t.done;}).length;
     var overdue=tasks.filter(function(t){return isOverdue(t);}).length;
     var inprog=tasks.filter(function(t){return getTaskStatus(t)==='in_progress';}).length;
+    var pct=tasks.length?Math.round(done/tasks.length*100):0;
+
+    // Sort: overdue first, then in progress, then not started, then done
+    var sorted=tasks.slice().sort(function(a,b){
+      var ao=isOverdue(a)?0:a.done?3:getTaskStatus(a)==='in_progress'?1:2;
+      var bo=isOverdue(b)?0:b.done?3:getTaskStatus(b)==='in_progress'?1:2;
+      return ao-bo;
+    });
+
     h+='<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;">';
-    h+='<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--surface2);border-bottom:1px solid var(--border);">';
-    h+='<div style="display:flex;align-items:center;gap:10px;">';
-    h+='<div style="width:34px;height:34px;border-radius:50%;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;">'+esc(owner.value)+'</div>';
-    h+='<div><div style="font-size:14px;font-weight:700;color:var(--text);">'+esc(owner.label)+'</div>';
-    h+='<div style="font-size:11px;color:var(--text3);">'+tasks.length+' tasks &middot; '+done+' done'+(overdue>0?' &middot; <span style="color:var(--red);">'+overdue+' overdue</span>':'')+(inprog>0?' &middot; '+inprog+' in progress':'')+'</div></div></div>';
-    h+='<div style="height:4px;width:120px;background:var(--grey-light);border-radius:2px;overflow:hidden;"><div style="height:4px;background:var(--navy);width:'+(tasks.length?Math.round(done/tasks.length*100):0)+'%;border-radius:2px;"></div></div>';
-    h+='</div>';
-    if(tasks.length){
-      h+=renderTaskTable(tasks,true);
+    // Header row
+    h+='<div style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--surface2);border-bottom:1px solid var(--border);">';
+    h+='<div style="width:36px;height:36px;border-radius:50%;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;">'+esc(owner.value)+'</div>';
+    h+='<div style="flex:1;min-width:0;">';
+    h+='<div style="font-size:14px;font-weight:700;color:var(--text);">'+esc(owner.label)+'</div>';
+    h+='<div style="font-size:11px;color:var(--text3);margin-top:2px;">';
+    h+=tasks.length+' tasks &middot; '+done+' done &middot; '+inprog+' in progress';
+    if(overdue>0)h+=' &middot; <span style="color:var(--red);font-weight:700;">'+overdue+' overdue</span>';
+    h+='</div></div>';
+    // Progress bar
+    h+='<div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">';
+    h+='<div style="font-size:12px;font-weight:700;color:var(--text);">'+pct+'%</div>';
+    h+='<div style="height:6px;width:100px;background:var(--grey-light);border-radius:3px;overflow:hidden;"><div style="height:6px;background:var(--navy);width:'+pct+'%;border-radius:3px;transition:width 0.4s;"></div></div>';
+    h+='</div></div>';
+
+    if(!tasks.length){
+      h+='<div style="padding:14px 16px;color:var(--text3);font-size:13px;">No tasks for this period.</div>';
     } else {
-      h+='<div style="padding:16px;text-align:center;color:var(--text3);font-size:13px;">No tasks for this period</div>';
+      // Compact task list — not full table, just clean rows
+      h+='<div style="max-height:320px;overflow-y:auto;">';
+      sorted.forEach(function(t){
+        var ov=isOverdue(t);
+        var ds=isDueSoon(t);
+        var status=getTaskStatus(t);
+        var ch=S.channels.find(function(c){return c.key===t.channel;});
+        var rowBg=t.done?'opacity:0.55;':ov?'background:#fff8f8;':ds?'background:#fffdf0;':'';
+        h+='<div style="display:flex;align-items:center;gap:10px;padding:8px 16px;border-bottom:1px solid var(--border);'+rowBg+'">';
+        // Done toggle
+        h+='<button class="check-btn '+(t.done?'checked':'')+'" onclick="toggleDone(\''+t.id+'\')" style="flex-shrink:0;">';
+        if(t.done)h+='<svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>';
+        h+='</button>';
+        // Channel dot
+        if(ch)h+='<span style="width:7px;height:7px;border-radius:50%;background:'+ch.color+';flex-shrink:0;" title="'+esc(ch.label)+'"></span>';
+        // Task name
+        h+='<div style="flex:1;min-width:0;">';
+        h+='<div style="font-size:13px;color:var(--text);'+(t.done?'text-decoration:line-through;color:var(--text3);':'')+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="'+esc(t.task)+'">'+esc(t.task)+'</div>';
+        if(ch)h+='<div style="font-size:10px;color:var(--text3);">'+esc(ch.label)+'</div>';
+        h+='</div>';
+        // Due date
+        if(t.due_date){
+          var dLabel=new Date(t.due_date+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'});
+          h+='<div style="font-size:11px;font-weight:'+(ov||ds?'700':'400')+';color:'+(ov?'var(--red)':ds?'#9a6700':'var(--text3)')+';flex-shrink:0;">'+dLabel+'</div>';
+        }
+        // Status badge
+        h+=statusBadgeHtml(t,false);
+        // Edit button
+        h+='<button class="btn-icon" onclick="openEditModal(\''+t.id+'\')" title="Edit" style="flex-shrink:0;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>';
+        h+='</div>';
+      });
+      h+='</div>';
     }
     h+='</div>';
   });
@@ -2855,11 +2886,15 @@ async function renderCampaign(campaignId){
 
     if(mcStats&&!mcStats.error){
       var sentDate=mcStats.send_time?new Date(mcStats.send_time).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}):'—';
-      var opens=mcStats.report_summary?Math.round(mcStats.report_summary.open_rate||0)+'%':'—';
-      var clicks=mcStats.report_summary?Math.round(mcStats.report_summary.click_rate||0)+'%':'—';
-      var uniqueOpens=mcStats.report_summary?(mcStats.report_summary.unique_opens||0).toLocaleString():'—';
+      // Reports endpoint: open/click rates are in opens.open_rate and clicks.click_rate (already percentages)
+      // Falls back to report_summary if present (campaigns endpoint format)
+      var openRate=mcStats.opens?mcStats.opens.open_rate:(mcStats.report_summary?mcStats.report_summary.open_rate:null);
+      var clickRate=mcStats.clicks?mcStats.clicks.click_rate:(mcStats.report_summary?mcStats.report_summary.click_rate:null);
+      var uniqueOpens=mcStats.opens?(mcStats.opens.unique_opens||0).toLocaleString():(mcStats.report_summary?(mcStats.report_summary.unique_opens||0).toLocaleString():'—');
+      var opens=openRate!=null?Math.round(openRate)+'%':'—';
+      var clicks=clickRate!=null?Math.round(clickRate)+'%':'—';
       var recipients=(mcStats.emails_sent||0).toLocaleString();
-      var subject=mcStats.settings&&mcStats.settings.subject_line?mcStats.settings.subject_line:'';
+      var subject=mcStats.campaign_title||'';
       h+='<div class="summary-grid">';
       if(subject)h+='<div class="stat-card" style="border-top-color:'+(camp.color||'#990700')+';grid-column:1/-1;"><div class="sc-label">Subject line</div><div style="font-size:14px;font-weight:700;color:var(--text);padding:4px 0;">'+esc(subject)+'</div><div class="sc-sub">Sent '+sentDate+'</div></div>';
       h+='<div class="stat-card" style="border-top-color:#4A4A4A;"><div class="sc-label">Recipients</div><div class="sc-value">'+recipients+'</div><div class="sc-sub">emails sent</div></div>';
