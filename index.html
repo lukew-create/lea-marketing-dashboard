@@ -96,6 +96,8 @@ nav{width:var(--sidebar-w);flex-shrink:0;min-height:0;background:var(--surface);
 
 /* MAIN */
 main{flex:1;min-height:0;overflow-y:auto;padding:20px 24px;display:flex;flex-direction:column;gap:16px;scroll-behavior:smooth;-webkit-overflow-scrolling:touch;}main.gantt-mode{padding:16px 0 0 0;gap:12px;overflow:hidden;}
+/* Blocks on a page keep their full height and the PAGE scrolls — without this, tables/cards get squashed to fit the window and rows look cut off */
+main:not(.gantt-mode)>*{flex-shrink:0;}
 
 /* PAGE HEADER */
 .page-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;}
@@ -621,6 +623,28 @@ thead th{position:sticky;top:0;z-index:2;background:var(--grey-light);}
   </div>
 </div>
 
+<!-- MANUAL STAT MODAL -->
+<div class="modal-overlay" id="statModal" style="display:none;" onclick="if(event.target===this)closeStatModal();">
+  <div class="modal" style="width:440px;">
+    <div class="modal-title" id="statModalTitle">Add a stat</div>
+    <div class="form-row"><label>What is it? *</label>
+      <select id="st-metric" onchange="statMetricChanged()"></select>
+      <input type="text" id="st-metric-custom" placeholder="Type a name, e.g. Newsletter sign-ups" style="display:none;margin-top:6px;" onkeydown="if(event.key==='Enter'){event.preventDefault();saveStat();}"/>
+    </div>
+    <div class="form-2col">
+      <div class="form-row"><label>Number *</label><input type="number" id="st-value" step="any" placeholder="e.g. 1250" onkeydown="if(event.key==='Enter'){event.preventDefault();saveStat();}"/></div>
+      <div class="form-row"><label>Date</label><input type="date" id="st-date"/></div>
+    </div>
+    <div class="form-row"><label>Note <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text3);">(optional)</span></label><input type="text" id="st-note" placeholder="e.g. last 28 days, or Episode 1 only" onkeydown="if(event.key==='Enter'){event.preventDefault();saveStat();}"/></div>
+    <div style="font-size:11px;color:var(--text3);">Each entry is a reading on that date. Add a new one whenever you update the number and the dashboard shows the change.</div>
+    <div class="form-actions">
+      <button class="btn btn-ghost" onclick="closeStatModal()">Cancel</button>
+      <button class="btn btn-ghost" id="st-delete" style="display:none;color:var(--red);border-color:var(--red);" onclick="deleteStatFromModal()">Delete</button>
+      <button class="btn btn-red" onclick="saveStat()">Save</button>
+    </div>
+  </div>
+</div>
+
 <!-- REPORT MODAL -->
 <div class="modal-overlay" id="reportModal" style="display:none;" onclick="closeReportModal(event)">
   <div class="modal" style="width:600px;">
@@ -697,7 +721,7 @@ let S={
   searchQuery:'',
   filters:{owner:'',relates:'',status:''},
   selectedTasks:new Set(),
-  tasks:[],channels:[],campaigns:[],notes:{},activityLog:[],ganttGroupBy:'channel',sidebarCollapsed:false,calView:'month',calDate:new Date(),campaignFilter:'active',
+  tasks:[],channels:[],campaigns:[],notes:{},activityLog:[],ganttGroupBy:'channel',sidebarCollapsed:false,calView:'month',calDate:new Date(),campaignFilter:'active',manualStats:[],manualStatsError:false,statsShowAll:false,
 };
 let editingTaskId=null,editingChannels=[];
 
@@ -2788,6 +2812,8 @@ async function renderAnalytics(){
   renderSidebar();
   document.getElementById('main').innerHTML='<div class="page-header"><div><div class="page-title">Analytics</div><div class="page-sub">Live data from connected platforms</div></div></div><div class="loading"><div class="spinner"></div>Loading analytics…</div>';
 
+  // Manual stats load alongside the Mailchimp calls (this function never throws)
+  var statsLoad=loadManualStats();
   // Call the Supabase Edge Function proxy — reads API key server-side, no CORS issues
   var mcLists=null;
   var mcCampaigns=null;
@@ -2803,7 +2829,11 @@ async function renderAnalytics(){
   }catch(e){
     console.warn('Mailchimp proxy fetch failed:',e);
   }
+  await statsLoad;
 
+  // The person may have moved to another page while this was loading — do not overwrite it
+  if(S.activeChannel!=='analytics')return;
+  lastMc={lists:mcLists,campaigns:mcCampaigns};
   renderAnalyticsPage(mcLists,mcCampaigns);
 }
 
@@ -2893,6 +2923,9 @@ function renderAnalyticsPage(mcLists,mcCampaigns){
     h+='</div>';
   }
 
+  // Manual stats (numbers typed in by hand)
+  h+=renderManualStatsSection();
+
   // YouTube placeholder
   h+='<div style="font-size:13px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:8px;margin-top:4px;">';
   h+='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22.54 6.42a2.78 2.78 0 00-1.95-1.96C18.88 4 12 4 12 4s-6.88 0-8.59.46a2.78 2.78 0 00-1.95 1.96A29 29 0 001 12a29 29 0 00.46 5.58A2.78 2.78 0 003.41 19.6C5.12 20 12 20 12 20s6.88 0 8.59-.46a2.78 2.78 0 001.95-1.95A29 29 0 0023 12a29 29 0 00-.46-5.58z"/><polygon points="9.75 15.02 15.5 12 9.75 8.98 9.75 15.02"/></svg>';
@@ -2914,6 +2947,253 @@ function renderAnalyticsPage(mcLists,mcCampaigns){
   h+='</div>';
 
   setMainHTML(h);
+}
+
+// MANUAL STATS — numbers typed in by hand (YouTube views, blog page views, Search Console clicks…)
+var STAT_PRESETS=['YouTube views','YouTube subscribers','Blog page views','Website visits','Search Console clicks','Search Console impressions','Podcast downloads','Social media followers','Social media impressions'];
+var STATS_SQL=[
+  'create table if not exists public.manual_stats (',
+  '  id uuid primary key default gen_random_uuid(),',
+  '  metric text not null,',
+  '  value numeric not null,',
+  '  stat_date date not null default current_date,',
+  "  note text not null default '',",
+  '  created_at timestamptz not null default now()',
+  ');',
+  'alter table public.manual_stats enable row level security;',
+  'drop policy if exists "dashboard access" on public.manual_stats;',
+  'create policy "dashboard access" on public.manual_stats for all to anon, authenticated using (true) with check (true);'
+].join('\n');
+var lastMc={lists:null,campaigns:null};
+var editingStatId=null;
+
+function statFmt(n){return Number(n).toLocaleString('en-GB',{maximumFractionDigits:2});}
+function statDateFmt(d){return d?new Date(d+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}):'—';}
+function statToday(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function statNewestFirst(a,b){
+  if(a.stat_date!==b.stat_date)return a.stat_date<b.stat_date?1:-1;
+  var ca=a.created_at||'',cb=b.created_at||'';
+  return ca===cb?0:(ca<cb?1:-1);
+}
+function statGroups(){
+  var g={};
+  S.manualStats.forEach(function(s){(g[s.metric]=g[s.metric]||[]).push(s);});
+  Object.keys(g).forEach(function(k){g[k].sort(statNewestFirst);});
+  return g;
+}
+// Preset names first (in preset order), then any custom names A–Z
+function statOrder(names){
+  return names.slice().sort(function(a,b){
+    var ia=STAT_PRESETS.indexOf(a),ib=STAT_PRESETS.indexOf(b);
+    if(ia>-1&&ib>-1)return ia-ib;
+    if(ia>-1)return -1;
+    if(ib>-1)return 1;
+    return a.localeCompare(b);
+  });
+}
+function statMetricOptions(){
+  var seen={},extra=[];
+  S.manualStats.forEach(function(s){if(s.metric&&!seen[s.metric]&&STAT_PRESETS.indexOf(s.metric)===-1){seen[s.metric]=1;extra.push(s.metric);}});
+  extra.sort(function(a,b){return a.localeCompare(b);});
+  return STAT_PRESETS.concat(extra);
+}
+function statSparkline(vals){
+  if(vals.length<2)return '';
+  var w=100,hgt=26,pad=2,min=Math.min.apply(null,vals),max=Math.max.apply(null,vals),rng=max-min||1;
+  var pts=vals.map(function(v,i){
+    return ((i/(vals.length-1))*w).toFixed(1)+','+(hgt-pad-((v-min)/rng)*(hgt-pad*2)).toFixed(1);
+  }).join(' ');
+  return '<svg viewBox="0 0 '+w+' '+hgt+'" preserveAspectRatio="none" style="width:100%;height:26px;margin-top:8px;display:block;"><polyline points="'+pts+'" fill="none" stroke="#003F75" stroke-width="1.5" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"/></svg>';
+}
+function statsErrorKind(err){
+  var m=((err&&err.message)||'')+' '+((err&&err.code)||'');
+  return /PGRST205|42P01|schema cache|does not exist|Could not find the table/i.test(m)?'setup':'other';
+}
+async function loadManualStats(){
+  try{
+    var r=await db.from('manual_stats').select('*').order('stat_date',{ascending:false}).order('created_at',{ascending:false});
+    if(r.error){S.manualStats=[];S.manualStatsError=statsErrorKind(r.error);}
+    else{S.manualStats=r.data||[];S.manualStatsError=false;}
+  }catch(e){S.manualStats=[];S.manualStatsError='other';}
+}
+function statRefresh(){if(S.activeChannel==='analytics')renderAnalyticsPage(lastMc.lists,lastMc.campaigns);}
+
+function renderManualStatsSection(){
+  var h='<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:4px;flex-wrap:wrap;">';
+  h+='<div style="font-size:13px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:8px;">';
+  h+='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>';
+  h+='Manual stats <span style="font-weight:400;font-size:11px;color:var(--text3);">numbers you type in yourself</span></div>';
+  if(!S.manualStatsError)h+='<button class="btn btn-red btn-sm" onclick="openStatModal()">+ Add stat</button>';
+  h+='</div>';
+
+  var box='background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;';
+  if(S.manualStatsError==='setup'){
+    h+='<div style="'+box+'">';
+    h+='<div style="font-size:14px;font-weight:700;color:var(--text);">Manual stats needs a one-time setup</div>';
+    h+='<div style="font-size:12px;color:var(--text3);margin:4px 0 10px;">In Supabase open <strong>SQL Editor → New query</strong>, paste this, click <strong>Run</strong>, then refresh this page.</div>';
+    h+='<pre style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;font-size:11px;line-height:1.5;overflow-x:auto;white-space:pre;margin-bottom:10px;">'+esc(STATS_SQL)+'</pre>';
+    h+='<button class="btn btn-ghost btn-sm" onclick="copyStatSql()">Copy SQL</button></div>';
+    return h;
+  }
+  if(S.manualStatsError){
+    h+='<div style="'+box+'font-size:12px;color:var(--text3);">Could not load manual stats right now. Refresh the page to try again.</div>';
+    return h;
+  }
+  if(!S.manualStats.length){
+    h+='<div style="background:var(--surface);border:1px dashed var(--border2);border-radius:var(--radius-lg);padding:20px;">';
+    h+='<div style="font-size:14px;font-weight:700;color:var(--text);">No numbers added yet</div>';
+    h+='<div style="font-size:12px;color:var(--text3);margin:4px 0 12px;">Pick one to log your first number. You can add more any time.</div>';
+    h+='<div style="display:flex;flex-wrap:wrap;gap:8px;">';
+    STAT_PRESETS.slice(0,6).forEach(function(n){
+      h+='<button class="btn btn-ghost btn-sm" data-metric="'+esc(n)+'" onclick="openStatModal(null,this.dataset.metric)">+ '+esc(n)+'</button>';
+    });
+    h+='</div></div>';
+    return h;
+  }
+
+  var groups=statGroups();
+  var names=statOrder(Object.keys(groups));
+  var colours=['#003F75','#990700','#00519a','#949494'];
+  h+='<div style="display:flex;flex-direction:column;gap:6px;"><div class="summary-grid">';
+  names.forEach(function(name,i){
+    var list=groups[name],latest=list[0],prev=list[1];
+    var line1='First reading';
+    if(prev){
+      var diff=Number(latest.value)-Number(prev.value);
+      var up=diff>0,down=diff<0;
+      var col=up?'#1a7f37':down?'#b42318':'#949494';
+      var arrow=up?'▲':down?'▼':'–';
+      var pct=Number(prev.value)!==0?' ('+(up?'+':'')+(Math.round(diff/Math.abs(Number(prev.value))*10000)/100).toFixed(2)+'%)':'';
+      line1='<span style="color:'+col+';font-weight:700;">'+arrow+' '+(up?'+':'')+statFmt(diff)+pct+'</span>';
+    }
+    h+='<div class="stat-card" data-metric="'+esc(name)+'" onclick="openStatModal(null,this.dataset.metric)" title="Click to add a new reading" style="border-top-color:'+colours[i%colours.length]+';">';
+    h+='<div class="sc-label">'+esc(name)+'</div>';
+    h+='<div class="sc-value">'+statFmt(latest.value)+'</div>';
+    h+='<div class="sc-sub">'+line1+'</div>';
+    h+='<div class="sc-sub">'+statDateFmt(latest.stat_date)+(latest.note?' · '+esc(latest.note):'')+'</div>';
+    h+=statSparkline(list.slice(0,12).reverse().map(function(x){return Number(x.value);}));
+    h+='</div>';
+  });
+  h+='</div><div style="font-size:11px;color:var(--text3);">Click a number to add a new reading for it.</div></div>';
+
+  var rows=S.manualStats.slice().sort(statNewestFirst);
+  var total=rows.length,limit=S.statsShowAll?total:15;
+  h+='<div style="font-size:12px;font-weight:700;color:var(--text);margin-top:4px;">Entries</div>';
+  h+='<div class="table-wrap"><table><thead><tr>';
+  h+='<th style="text-align:left;width:110px;">Date</th><th style="text-align:left;">Stat</th><th style="text-align:right;width:110px;">Number</th><th style="text-align:left;">Note</th><th style="width:64px;"></th>';
+  h+='</tr></thead><tbody>';
+  rows.slice(0,limit).forEach(function(s){
+    h+='<tr>';
+    h+='<td style="font-size:11px;color:var(--text3);white-space:nowrap;">'+statDateFmt(s.stat_date)+'</td>';
+    h+='<td style="font-size:12px;color:var(--text);">'+esc(s.metric)+'</td>';
+    h+='<td style="font-size:12px;text-align:right;font-weight:700;">'+statFmt(s.value)+'</td>';
+    h+='<td style="font-size:12px;color:var(--text3);">'+esc(s.note||'')+'</td>';
+    h+='<td style="text-align:right;white-space:nowrap;">';
+    h+='<button class="btn-icon" data-id="'+esc(s.id)+'" onclick="openStatModal(this.dataset.id)" title="Edit"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></button>';
+    h+='<button class="btn-icon" data-id="'+esc(s.id)+'" onclick="deleteStat(this.dataset.id)" title="Delete"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>';
+    h+='</td></tr>';
+  });
+  h+='</tbody></table></div>';
+  if(total>15)h+='<div style="text-align:center;"><button class="btn btn-ghost btn-sm" onclick="toggleStatsShowAll()">'+(S.statsShowAll?'Show fewer':'Show all '+total+' entries')+'</button></div>';
+  return h;
+}
+function toggleStatsShowAll(){S.statsShowAll=!S.statsShowAll;statRefresh();}
+function copyStatSql(){
+  function fallback(){
+    try{
+      var ta=document.createElement('textarea');ta.value=STATS_SQL;ta.style.position='fixed';ta.style.opacity='0';
+      document.body.appendChild(ta);ta.select();var ok=document.execCommand('copy');ta.remove();
+      toast(ok?'SQL copied':'Select the SQL and copy it by hand');
+    }catch(e){toast('Select the SQL and copy it by hand');}
+  }
+  if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(STATS_SQL).then(function(){toast('SQL copied');},fallback);
+  else fallback();
+}
+
+function fillStatMetricOptions(selected){
+  var sel=document.getElementById('st-metric');
+  var opts=statMetricOptions();
+  if(selected&&opts.indexOf(selected)===-1)opts.push(selected);
+  var html='<option value="">Choose…</option>';
+  opts.forEach(function(n){html+='<option value="'+esc(n)+'">'+esc(n)+'</option>';});
+  html+='<option value="__custom__">Other — type your own…</option>';
+  sel.innerHTML=html;
+  sel.value=selected||'';
+  document.getElementById('st-metric-custom').value='';
+  statMetricChanged();
+}
+function statMetricChanged(){
+  var custom=document.getElementById('st-metric').value==='__custom__';
+  var inp=document.getElementById('st-metric-custom');
+  inp.style.display=custom?'block':'none';
+  if(custom)inp.focus();
+}
+function openStatModal(id,presetMetric){
+  var s=null;
+  if(id){s=S.manualStats.find(function(x){return x.id===id;});if(!s)return;}
+  editingStatId=s?s.id:null;
+  fillStatMetricOptions(s?s.metric:(presetMetric||''));
+  document.getElementById('statModalTitle').textContent=s?'Edit stat':'Add a stat';
+  document.getElementById('st-value').value=s?s.value:'';
+  document.getElementById('st-date').value=s?s.stat_date:statToday();
+  document.getElementById('st-note').value=s?(s.note||''):'';
+  document.getElementById('st-delete').style.display=s?'':'none';
+  document.getElementById('statModal').style.display='flex';
+  setTimeout(function(){
+    var m=document.getElementById('st-metric');
+    var f=(m&&m.value)?document.getElementById('st-value'):m;
+    if(f)f.focus();
+  },50);
+}
+function closeStatModal(){
+  document.getElementById('statModal').style.display='none';
+  editingStatId=null;
+}
+async function saveStat(){
+  var sel=document.getElementById('st-metric').value;
+  var metric=sel==='__custom__'?document.getElementById('st-metric-custom').value.trim():sel;
+  var raw=document.getElementById('st-value').value;
+  var value=raw===''?NaN:Number(raw);
+  var date=document.getElementById('st-date').value;
+  var note=document.getElementById('st-note').value.trim();
+  if(!metric){toast('Choose what the number is for','error');return;}
+  if(!isFinite(value)){toast('Enter a number','error');document.getElementById('st-value').focus();return;}
+  if(!date){toast('Pick a date','error');return;}
+  // Re-use the existing spelling if this name is already used (any capitalisation)
+  var known=statMetricOptions().filter(function(n){return n.toLowerCase()===metric.toLowerCase();})[0];
+  if(known)metric=known;
+  var payload={metric:metric,value:value,stat_date:date,note:note};
+  var wasEditing=!!editingStatId;
+  var res=wasEditing?await db.from('manual_stats').update(payload).eq('id',editingStatId).select():await db.from('manual_stats').insert(payload).select();
+  if(res.error){
+    var m=res.error.message||'',c=res.error.code||'';
+    if(c==='42501'||/row-level security/i.test(m))toast('Supabase blocked that. Run the manual stats setup SQL again (including the policy line).','error');
+    else if(statsErrorKind(res.error)==='setup')toast('The manual_stats table does not exist yet. Run the setup SQL first.','error');
+    else toast('Could not save: '+m,'error');
+    return;
+  }
+  if(!res.data||!res.data[0]){toast('Not saved. Supabase did not accept it, so run the setup SQL again (including the policy line).','error');return;}
+  var row=res.data[0];
+  S.manualStats=wasEditing?S.manualStats.map(function(x){return x.id===row.id?row:x;}):[row].concat(S.manualStats);
+  S.manualStatsError=false;
+  closeStatModal();
+  statRefresh();
+  toast(wasEditing?'Stat updated':'Stat added');
+}
+async function deleteStat(id){
+  var s=S.manualStats.find(function(x){return x.id===id;});
+  if(!s)return;
+  if(!confirm('Delete this entry?\n\n'+s.metric+': '+statFmt(s.value)+' ('+statDateFmt(s.stat_date)+')'))return;
+  var r=await db.from('manual_stats').delete().eq('id',id).select();
+  if(r.error||!r.data||!r.data.length){toast('Could not delete that entry','error');return;}
+  S.manualStats=S.manualStats.filter(function(x){return x.id!==id;});
+  statRefresh();
+  toast('Entry deleted');
+}
+function deleteStatFromModal(){
+  var id=editingStatId;
+  closeStatModal();
+  if(id)deleteStat(id);
 }
 
 async function duplicateCampaign(id){
@@ -3405,6 +3685,7 @@ document.addEventListener('keydown',e=>{
     document.getElementById('channelModal').style.display='none';
     document.getElementById('reportModal').style.display='none';
     document.getElementById('quickTaskModal').style.display='none';
+    document.getElementById('statModal').style.display='none';
     if(S.searchQuery){S.searchQuery='';document.getElementById('globalSearch').value='';render();}
   }
   if((e.metaKey||e.ctrlKey)&&e.key==='k'){e.preventDefault();openAddModal();}
