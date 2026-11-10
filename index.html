@@ -738,47 +738,6 @@ const DEFAULT_CHANNELS=[
   {key:'other',label:'Other',color:'#4A4A4A',position:10},
 ];
 
-const DEFAULT_TASKS=[
-  {channel:'social',task:'Heijunka pattern — social posts on Trello',owner:'LW',relates_to:'Lean Practice Book',metric:'Pattern decided & posts created',start_date:'',progress:0,due_date:'',notes:'LP / Products / Platform / Projects / Workshops / Events / Blogs / YouTube / Throwback Thursday / Mailchimp sign-up'},
-  {channel:'social',task:'Weekly Lean Practice post — LEA socials',owner:'LW',relates_to:'Lean Practice Book',metric:'Post published',start_date:'',progress:0,due_date:'',notes:''},
-  {channel:'social',task:'Weekly Lean Practice post — LinkedIn',owner:'DB',relates_to:'Lean Practice Book',metric:'Post published',start_date:'',progress:0,due_date:'',notes:''},
-  {channel:'social',task:'Weekly Lean Practice post — LinkedIn',owner:'DM',relates_to:'Lean Practice Book',metric:'Post published',start_date:'',progress:0,due_date:'',notes:''},
-  {channel:'social',task:'Weekly Lean Practice post — LinkedIn',owner:'PW',relates_to:'Lean Practice Book',metric:'Post published',start_date:'',progress:0,due_date:'',notes:''},
-  {channel:'mailchimp',task:'Lean Practice — The Missing Link',owner:'',relates_to:'Lean Practice Book',metric:'Email sent',start_date:'',progress:0,due_date:'',notes:''},
-  {channel:'mailchimp',task:'Lean Practice: Now Available',owner:'',relates_to:'Lean Practice Book',metric:'Email sent',start_date:'',progress:0,due_date:'',notes:''},
-  {channel:'mailchimp',task:'Why you should read Lean Practice',owner:'',relates_to:'Lean Practice Book',metric:'Email sent',start_date:'',progress:0,due_date:'',notes:''},
-  {channel:'mailchimp',task:'Workshops — referring back to Lean Practice',owner:'',relates_to:'Lean Practice Book',metric:'Email sent',start_date:'',progress:0,due_date:'',notes:''},
-  {channel:'mailchimp',task:'Lean Practice playlist on YouTube',owner:'',relates_to:'Lean Practice Book',metric:'Email sent',start_date:'',progress:0,due_date:'',notes:''},
-  {channel:'mailchimp',task:'Book feedback — Summit, Dan, John etc.',owner:'',relates_to:'Lean Practice Book',metric:'Email sent',start_date:'',progress:0,due_date:'',notes:''},
-  {channel:'mailchimp',task:'Lean Practice — Teaching Bundles',owner:'',relates_to:'Lean Practice Book',metric:'Email sent',start_date:'',progress:0,due_date:'',notes:''},
-  {channel:'automatewoo',task:'Awareness email — every purchase excl. Lean Practice',owner:'',relates_to:'Lean Practice Book',metric:'Automation live',start_date:'',progress:0,due_date:'',notes:''},
-  {channel:'automatewoo',task:'LP purchase — thank you + LTF Diagnostic (Workflow #1)',owner:'',relates_to:'Lean Practice Book',metric:'Automation live',start_date:'',progress:0,due_date:'',notes:'Update to add Mailchimp sign-up'},
-  {channel:'automatewoo',task:'LP purchase — how are you getting on? (Workflow #2)',owner:'',relates_to:'Lean Practice Book',metric:'Automation live',start_date:'',progress:0,due_date:'',notes:'Update to add Mailchimp sign-up'},
-  {channel:'automatewoo',task:'LP purchase — book feedback (Workflow #3)',owner:'',relates_to:'Lean Practice Book',metric:'Automation live',start_date:'',progress:0,due_date:'',notes:'Update to add Mailchimp sign-up'},
-  {channel:'automatewoo',task:'LP purchase — share your lean journey (Workflow #4)',owner:'',relates_to:'Lean Practice Book',metric:'Automation live',start_date:'',progress:0,due_date:'',notes:'Update to add Mailchimp sign-up'},
-  {channel:'youtube',task:"30-second snippet — who we are, book, platform, materials",owner:'',relates_to:'Lean Practice Book',metric:'Snippet created',start_date:'',progress:0,due_date:'',notes:''},
-  {channel:'youtube',task:"Create 'Lean Practice' playlist on YouTube channel",owner:'',relates_to:'Lean Practice Book',metric:'Playlist created',start_date:'',progress:0,due_date:'',notes:''},
-  {channel:'youtube',task:'Lean Practice — UK Lean Summit 2026',owner:'',relates_to:'UK Lean Summit',metric:'Recording edited & published',start_date:'',progress:0,due_date:'',notes:''},
-  {channel:'youtube',task:'Lean Practice Book Series — Episode #1',owner:'',relates_to:'Lean Practice Book',metric:'Episode published',start_date:'',progress:0,due_date:'',notes:''},
-  {channel:'youtube',task:'Lean Practice Book Series — Episode #2',owner:'',relates_to:'Lean Practice Book',metric:'Episode published',start_date:'',progress:0,due_date:'',notes:''},
-  {channel:'youtube',task:'Lean Practice Book Series — Episode #3',owner:'',relates_to:'Lean Practice Book',metric:'Episode published',start_date:'',progress:0,due_date:'',notes:''},
-  {channel:'targeted',task:'Contact customers who emailed interest in buying copies',owner:'',relates_to:'Lean Practice Book',metric:'Customers contacted',start_date:'',progress:0,due_date:'',notes:''},
-  {channel:'targeted',task:'Contact non-subscribed UK Lean Summit 2026 attendees (20% off 10+)',owner:'',relates_to:'UK Lean Summit',metric:'Targeted customers & email sent',start_date:'',progress:0,due_date:'',notes:''},
-  {channel:'targeted',task:'Contact UK Lean Summit 2024 + 2025 attendees',owner:'',relates_to:'UK Lean Summit',metric:'Targeted customers & email sent',start_date:'',progress:0,due_date:'',notes:''},
-  {channel:'targeted',task:'Analyse products sold on LEA website — Pareto analysis',owner:'',relates_to:'General / Informative',metric:'Products analysed & next steps',start_date:'',progress:0,due_date:'',notes:''},
-  {channel:'podcasts',task:'Mark Graban Podcast — guest appearance',owner:'',relates_to:'Lean Practice Book',metric:'Episode recorded',start_date:'',progress:0,due_date:'',notes:''},
-  {channel:'podcasts',task:'Katie Anderson Podcast — guest appearance',owner:'',relates_to:'Lean Practice Book',metric:'Episode recorded',start_date:'',progress:0,due_date:'',notes:''},
-  {channel:'podcasts',task:'Matt Simms Podcast — guest appearance',owner:'',relates_to:'Lean Practice Book',metric:'Episode recorded',start_date:'',progress:0,due_date:'',notes:''},
-  {channel:'podcasts',task:'High Performance Podcast — guest appearance',owner:'',relates_to:'Lean Practice Book',metric:'Episode recorded',start_date:'',progress:0,due_date:'',notes:''},
-  {channel:'podcasts',task:"Hitchhiker's Guide to Lean — guest appearance",owner:'',relates_to:'Lean Practice Book',metric:'Episode recorded',start_date:'',progress:0,due_date:'',notes:''},
-  {channel:'podcasts',task:'WLEI Podcast — guest appearance',owner:'',relates_to:'Lean Practice Book',metric:'Episode recorded',start_date:'',progress:0,due_date:'',notes:''},
-  {channel:'blogs',task:'Lean Practice blog — SEO title TBC',owner:'DB',relates_to:'Lean Practice Book',metric:'Blog live',start_date:'',progress:0,due_date:'',notes:''},
-  {channel:'paid_ads',task:'Set up Lean Practice on Google Ads as featured product',owner:'',relates_to:'Lean Practice Book',metric:'Keywords decided & Google Ads live',start_date:'',progress:0,due_date:'',notes:''},
-  {channel:'website',task:'Update carousel — Coming Soon: Lean Practice',owner:'',relates_to:'Lean Practice Book',metric:'Carousel updated',start_date:'',progress:0,due_date:'',notes:''},
-  {channel:'website',task:'Update carousel — Available Now: Lean Practice',owner:'',relates_to:'Lean Practice Book',metric:'Carousel updated',start_date:'',progress:0,due_date:'',notes:''},
-  {channel:'other',task:'Obtain book feedback from UK Lean Summit 2026 attendees',owner:'',relates_to:'UK Lean Summit',metric:'Feedback obtained & collated',start_date:'',progress:0,due_date:'',notes:''},
-];
-
 // DATE HELPERS
 function weekRange(d){const day=d.getDay()||7,mon=new Date(d);mon.setDate(d.getDate()-day+1);mon.setHours(0,0,0,0);const sun=new Date(mon);sun.setDate(mon.getDate()+6);sun.setHours(23,59,59,999);return{start:mon,end:sun};}
 function monthRange(d){return{start:new Date(d.getFullYear(),d.getMonth(),1),end:new Date(d.getFullYear(),d.getMonth()+1,0,23,59,59)};}
@@ -811,7 +770,9 @@ function passesFilters(t){
 function visibleTasks(tasks){return tasks.filter(t=>inPeriod(t)&&passesFilters(t));}
 
 // CACHE HELPERS
-const CACHE_KEY='lea_dash_cache_v4';
+const CACHE_KEY='lea_dash_cache_v5';
+// Older saved copies can hold deleted campaigns/notes: drop them so every browser reloads fresh from the database once
+try{localStorage.removeItem('lea_dash_cache_v4');}catch(e){}
 function saveCache(){try{localStorage.setItem(CACHE_KEY,JSON.stringify({tasks:S.tasks,channels:S.channels,campaigns:S.campaigns,notes:S.notes,activityLog:S.activityLog,savedAt:Date.now()}));}catch(e){}}
 function loadCache(){try{const c=localStorage.getItem(CACHE_KEY);if(c){const p=JSON.parse(c);// Only use cache if less than 1 hour old
 if(Date.now()-p.savedAt<3600000){S.tasks=p.tasks||[];S.channels=p.channels||[];S.campaigns=p.campaigns||[];S.notes=p.notes||{};S.activityLog=p.activityLog||[];return true;}}return false;}catch(e){return false;}}
@@ -876,15 +837,15 @@ async function init(){
 
   // Tasks
   if(tRes.error){setSyncStatus('offline');toast('Could not connect','error');hideSplash();render();return;}
-  if(!tRes.data?.length){const{data:ins}=await db.from('tasks').insert(DEFAULT_TASKS).select();S.tasks=ins||[];}
-  else S.tasks=tRes.data;
+  // No auto-seeding: an empty tasks table stays empty, so clearing the data really clears it
+  S.tasks=tRes.data||[];
 
   // Notes
   if(nRes.data)nRes.data.forEach(n=>S.notes[n.note_key]=n.content);
 
   // Activity log
   if(logRes.data)S.activityLog=logRes.data;
-  if(campRes.data?.length)S.campaigns=campRes.data;
+  if(campRes.data)S.campaigns=campRes.data;
 
   splashProgress(100,'Ready!');
   saveCache();
@@ -903,9 +864,10 @@ async function syncFresh(){
   ]);
   if(chRes.data?.length)S.channels=chRes.data;
   if(tRes.data)S.tasks=tRes.data;
-  if(nRes.data)nRes.data.forEach(n=>S.notes[n.note_key]=n.content);
+  // Campaigns and notes follow the database exactly (an empty table means empty), otherwise deleted ones linger in the browser copy
+  if(nRes.data){S.notes={};nRes.data.forEach(n=>S.notes[n.note_key]=n.content);}
   if(logRes.data)S.activityLog=logRes.data;
-  if(campRes.data?.length)S.campaigns=campRes.data;
+  if(campRes.data)S.campaigns=campRes.data;
   saveCache();
   setSyncStatus('live');
   render();
