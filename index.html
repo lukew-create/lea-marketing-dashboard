@@ -636,6 +636,25 @@ thead th{position:sticky;top:0;z-index:2;background:var(--grey-light);}
       <div class="form-row"><label>Date</label><input type="date" id="st-date"/></div>
     </div>
     <div class="form-row"><label>Note <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text3);">(optional)</span></label><input type="text" id="st-note" placeholder="e.g. last 28 days, or Episode 1 only" onkeydown="if(event.key==='Enter'){event.preventDefault();saveStat();}"/></div>
+    <div id="st-link-fields">
+      <div class="form-row"><label>Campaign <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text3);">(optional)</span></label>
+        <select id="st-campaign"></select>
+      </div>
+      <div class="form-row"><label>Covers <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text3);">(optional, the dates this number is for)</span></label>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <input type="date" id="st-from" style="flex:1;"/><span style="font-size:12px;color:var(--text3);">to</span><input type="date" id="st-to" style="flex:1;"/>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;margin-top:6px;flex-wrap:wrap;">
+          <span style="font-size:11px;color:var(--text3);">Set the end date to</span>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="statSetWindow(7)">7 days</button>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="statSetWindow(30)">30 days</button>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="statSetWindow(90)">90 days</button>
+          <span style="font-size:11px;color:var(--text3);">from the start date</span>
+        </div>
+      </div>
+    </div>
+    <div id="st-link-off" style="display:none;font-size:11px;color:var(--text3);margin-bottom:8px;">To link a number to a campaign, run the one-off update SQL shown on the Analytics page under Manual stats.</div>
+    <div id="st-tip" style="display:none;font-size:11px;color:var(--text3);margin-bottom:8px;">Tip: in Google Analytics open Reports → Engagement → Pages and screens, set the dates above, search for the post and use its Views number.</div>
     <div style="font-size:11px;color:var(--text3);">Each entry is a reading on that date. Add a new one whenever you update the number and the dashboard shows the change.</div>
     <div class="form-actions">
       <button class="btn btn-ghost" onclick="closeStatModal()">Cancel</button>
@@ -721,7 +740,7 @@ let S={
   searchQuery:'',
   filters:{owner:'',relates:'',status:''},
   selectedTasks:new Set(),
-  tasks:[],channels:[],campaigns:[],notes:{},activityLog:[],ganttGroupBy:'channel',sidebarCollapsed:false,calView:'month',calDate:new Date(),campaignFilter:'active',manualStats:[],manualStatsError:false,statsShowAll:false,
+  tasks:[],channels:[],campaigns:[],notes:{},activityLog:[],ganttGroupBy:'channel',sidebarCollapsed:false,calView:'month',calDate:new Date(),campaignFilter:'active',manualStats:[],manualStatsError:false,statsShowAll:false,statsLinkReady:false,statsLoadedAt:0,
 };
 let editingTaskId=null,editingChannels=[];
 
@@ -2958,14 +2977,25 @@ var STATS_SQL=[
   '  value numeric not null,',
   '  stat_date date not null default current_date,',
   "  note text not null default '',",
+  '  campaign_id text,',
+  '  task_id text,',
+  '  period_start date,',
+  '  period_end date,',
   '  created_at timestamptz not null default now()',
   ');',
+  '-- safe to re-run: adds the campaign-link columns if the table was created earlier',
+  'alter table public.manual_stats add column if not exists campaign_id text;',
+  'alter table public.manual_stats add column if not exists task_id text;',
+  'alter table public.manual_stats add column if not exists period_start date;',
+  'alter table public.manual_stats add column if not exists period_end date;',
   'alter table public.manual_stats enable row level security;',
   'drop policy if exists "dashboard access" on public.manual_stats;',
-  'create policy "dashboard access" on public.manual_stats for all to anon, authenticated using (true) with check (true);'
+  'create policy "dashboard access" on public.manual_stats for all to anon, authenticated using (true) with check (true);',
+  "notify pgrst, 'reload schema';"
 ].join('\n');
 var lastMc={lists:null,campaigns:null};
-var editingStatId=null;
+var editingStatId=null,editingStatTaskId=null;
+var BLOG_WINDOW_DAYS=30;
 
 function statFmt(n){return Number(n).toLocaleString('en-GB',{maximumFractionDigits:2});}
 function statDateFmt(d){return d?new Date(d+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}):'—';}
@@ -2975,9 +3005,26 @@ function statNewestFirst(a,b){
   var ca=a.created_at||'',cb=b.created_at||'';
   return ca===cb?0:(ca<cb?1:-1);
 }
-function statGroups(){
+function statAddDays(ds,n){
+  var d=new Date(ds+'T12:00:00');d.setDate(d.getDate()+n);
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function statDaysBetween(a,b){return Math.round((new Date(b+'T12:00:00')-new Date(a+'T12:00:00'))/86400000);}
+function statDateShort(d){return d?new Date(d+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'}):'';}
+// "3 Nov – 2 Dec 2026" (year shown once when both dates are in the same year)
+function statPeriodText(s){
+  var a=s&&s.period_start,b=s&&s.period_end;
+  if(!a&&!b)return '';
+  if(a&&b)return (a.slice(0,4)===b.slice(0,4)?statDateShort(a):statDateFmt(a))+' – '+statDateFmt(b);
+  return a?'from '+statDateFmt(a):'until '+statDateFmt(b);
+}
+function statCampaignName(id){
+  var c=S.campaigns.find(function(x){return x.id===id;});
+  return c?c.name:'(deleted campaign)';
+}
+function statGroups(list){
   var g={};
-  S.manualStats.forEach(function(s){(g[s.metric]=g[s.metric]||[]).push(s);});
+  (list||S.manualStats).forEach(function(s){(g[s.metric]=g[s.metric]||[]).push(s);});
   Object.keys(g).forEach(function(k){g[k].sort(statNewestFirst);});
   return g;
 }
@@ -3007,16 +3054,27 @@ function statSparkline(vals){
 }
 function statsErrorKind(err){
   var m=((err&&err.message)||'')+' '+((err&&err.code)||'');
+  // a missing COLUMN (table made before the campaign-link update) is a different problem from a missing TABLE
+  if(/PGRST204|42703|column .* does not exist|Could not find the '[a-z_]+' column/i.test(m))return 'upgrade';
   return /PGRST205|42P01|schema cache|does not exist|Could not find the table/i.test(m)?'setup':'other';
 }
 async function loadManualStats(){
   try{
     var r=await db.from('manual_stats').select('*').order('stat_date',{ascending:false}).order('created_at',{ascending:false});
-    if(r.error){S.manualStats=[];S.manualStatsError=statsErrorKind(r.error);}
-    else{S.manualStats=r.data||[];S.manualStatsError=false;}
-  }catch(e){S.manualStats=[];S.manualStatsError='other';}
+    if(r.error){S.manualStats=[];S.manualStatsError=statsErrorKind(r.error);S.statsLinkReady=false;}
+    else{
+      S.manualStats=r.data||[];S.manualStatsError=false;
+      // Are the campaign-link columns there? Rows show it; with no rows, ask the database
+      if(S.manualStats.length)S.statsLinkReady=('campaign_id' in S.manualStats[0]);
+      else{var p=await db.from('manual_stats').select('campaign_id').limit(1);S.statsLinkReady=!p.error;}
+    }
+  }catch(e){S.manualStats=[];S.manualStatsError='other';S.statsLinkReady=false;}
+  S.statsLoadedAt=Date.now();
 }
-function statRefresh(){if(S.activeChannel==='analytics')renderAnalyticsPage(lastMc.lists,lastMc.campaigns);}
+function statRefresh(){
+  if(S.activeChannel==='analytics')renderAnalyticsPage(lastMc.lists,lastMc.campaigns);
+  else if(S.activeChannel.indexOf('campaign_')===0)render();
+}
 
 function renderManualStatsSection(){
   var h='<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:4px;flex-wrap:wrap;">';
@@ -3027,6 +3085,15 @@ function renderManualStatsSection(){
   h+='</div>';
 
   var box='background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;';
+  // Table exists but was made before the campaign-link update: everything else still works, linking is switched off until the SQL is re-run
+  var upgrade='';
+  if(!S.manualStatsError&&!S.statsLinkReady){
+    upgrade='<div style="'+box+'padding:12px 16px;font-size:12px;color:var(--text2);">';
+    upgrade+='<strong>Want to link numbers to campaigns?</strong> Run a one-off update in Supabase (SQL Editor → New query → paste → Run), then refresh this page.';
+    upgrade+='<details style="margin-top:6px;"><summary style="cursor:pointer;color:var(--navy);font-weight:700;">Show the SQL</summary>';
+    upgrade+='<pre style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;font-size:11px;line-height:1.5;overflow-x:auto;white-space:pre;margin:8px 0;">'+esc(STATS_SQL)+'</pre>';
+    upgrade+='<button class="btn btn-ghost btn-sm" onclick="copyStatSql()">Copy SQL</button></details></div>';
+  }
   if(S.manualStatsError==='setup'){
     h+='<div style="'+box+'">';
     h+='<div style="font-size:14px;font-weight:700;color:var(--text);">Manual stats needs a one-time setup</div>';
@@ -3040,6 +3107,7 @@ function renderManualStatsSection(){
     return h;
   }
   if(!S.manualStats.length){
+    h+=upgrade;
     h+='<div style="background:var(--surface);border:1px dashed var(--border2);border-radius:var(--radius-lg);padding:20px;">';
     h+='<div style="font-size:14px;font-weight:700;color:var(--text);">No numbers added yet</div>';
     h+='<div style="font-size:12px;color:var(--text3);margin:4px 0 12px;">Pick one to log your first number. You can add more any time.</div>';
@@ -3051,10 +3119,13 @@ function renderManualStatsSection(){
     return h;
   }
 
-  var groups=statGroups();
+  h+=upgrade;
+  // Tiles and trend lines use only the general readings. Numbers linked to a campaign (e.g. one blog post's first 30 days) are a different kind of number, so they live in the Entries list and on that campaign's page
+  var unlinked=S.manualStats.filter(function(s){return !s.campaign_id;});
+  var groups=statGroups(unlinked);
   var names=statOrder(Object.keys(groups));
   var colours=['#003F75','#990700','#00519a','#949494'];
-  h+='<div style="display:flex;flex-direction:column;gap:6px;"><div class="summary-grid">';
+  if(names.length)h+='<div style="display:flex;flex-direction:column;gap:6px;"><div class="summary-grid">';
   names.forEach(function(name,i){
     var list=groups[name],latest=list[0],prev=list[1];
     var line1='First reading';
@@ -3074,19 +3145,21 @@ function renderManualStatsSection(){
     h+=statSparkline(list.slice(0,12).reverse().map(function(x){return Number(x.value);}));
     h+='</div>';
   });
-  h+='</div><div style="font-size:11px;color:var(--text3);">Click a number to add a new reading for it.</div></div>';
+  if(names.length)h+='</div><div style="font-size:11px;color:var(--text3);">Click a number to add a new reading for it.</div></div>';
 
   var rows=S.manualStats.slice().sort(statNewestFirst);
   var total=rows.length,limit=S.statsShowAll?total:15;
   h+='<div style="font-size:12px;font-weight:700;color:var(--text);margin-top:4px;">Entries</div>';
   h+='<div class="table-wrap"><table><thead><tr>';
-  h+='<th style="text-align:left;width:110px;">Date</th><th style="text-align:left;">Stat</th><th style="text-align:right;width:110px;">Number</th><th style="text-align:left;">Note</th><th style="width:64px;"></th>';
+  h+='<th style="text-align:left;width:110px;">Date</th><th style="text-align:left;">Stat</th><th style="text-align:right;width:110px;">Number</th><th style="text-align:left;">Campaign</th><th style="text-align:left;">Note</th><th style="width:64px;"></th>';
   h+='</tr></thead><tbody>';
   rows.slice(0,limit).forEach(function(s){
+    var cn=s.campaign_id?esc(statCampaignName(s.campaign_id)):'',pr=statPeriodText(s);
     h+='<tr>';
     h+='<td style="font-size:11px;color:var(--text3);white-space:nowrap;">'+statDateFmt(s.stat_date)+'</td>';
     h+='<td style="font-size:12px;color:var(--text);">'+esc(s.metric)+'</td>';
     h+='<td style="font-size:12px;text-align:right;font-weight:700;">'+statFmt(s.value)+'</td>';
+    h+='<td style="font-size:12px;color:var(--text2);">'+(cn||'<span style="color:var(--text3);">—</span>')+(pr?'<div style="font-size:10px;color:var(--text3);">'+esc(pr)+'</div>':'')+'</td>';
     h+='<td style="font-size:12px;color:var(--text3);">'+esc(s.note||'')+'</td>';
     h+='<td style="text-align:right;white-space:nowrap;">';
     h+='<button class="btn-icon" data-id="'+esc(s.id)+'" onclick="openStatModal(this.dataset.id)" title="Edit"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></button>';
@@ -3123,20 +3196,48 @@ function fillStatMetricOptions(selected){
   statMetricChanged();
 }
 function statMetricChanged(){
-  var custom=document.getElementById('st-metric').value==='__custom__';
+  var metric=document.getElementById('st-metric').value;
+  var custom=metric==='__custom__';
   var inp=document.getElementById('st-metric-custom');
   inp.style.display=custom?'block':'none';
+  var tip=document.getElementById('st-tip');
+  if(tip)tip.style.display=metric==='Blog page views'?'':'none';
   if(custom)inp.focus();
 }
-function openStatModal(id,presetMetric){
+function fillStatCampaignOptions(selected){
+  var sel=document.getElementById('st-campaign');
+  var html='<option value="">— Not linked —</option>';
+  S.campaigns.forEach(function(c){html+='<option value="'+esc(c.id)+'">'+esc(c.name)+'</option>';});
+  if(selected&&!S.campaigns.some(function(c){return c.id===selected;}))html+='<option value="'+esc(selected)+'">(deleted campaign)</option>';
+  sel.innerHTML=html;
+  sel.value=selected||'';
+}
+// End date = start date + N days (counting the start day), e.g. 30 days from 3 Nov ends on 2 Dec
+function statSetWindow(n){
+  var from=document.getElementById('st-from').value;
+  if(!from){toast('Pick the start date first (the day it was published)','error');document.getElementById('st-from').focus();return;}
+  document.getElementById('st-to').value=statAddDays(from,n-1);
+}
+// pre (optional) pre-fills a new entry: {campaignId, taskId, from, to, note}
+function openStatModal(id,presetMetric,pre){
   var s=null;
   if(id){s=S.manualStats.find(function(x){return x.id===id;});if(!s)return;}
+  pre=pre||{};
   editingStatId=s?s.id:null;
+  editingStatTaskId=s?(s.task_id||null):(pre.taskId||null);
   fillStatMetricOptions(s?s.metric:(presetMetric||''));
   document.getElementById('statModalTitle').textContent=s?'Edit stat':'Add a stat';
   document.getElementById('st-value').value=s?s.value:'';
   document.getElementById('st-date').value=s?s.stat_date:statToday();
-  document.getElementById('st-note').value=s?(s.note||''):'';
+  document.getElementById('st-note').value=s?(s.note||''):(pre.note||'');
+  var linkOn=!!S.statsLinkReady;
+  document.getElementById('st-link-fields').style.display=linkOn?'':'none';
+  document.getElementById('st-link-off').style.display=linkOn?'none':'';
+  if(linkOn){
+    fillStatCampaignOptions(s?(s.campaign_id||''):(pre.campaignId||''));
+    document.getElementById('st-from').value=s?(s.period_start||''):(pre.from||'');
+    document.getElementById('st-to').value=s?(s.period_end||''):(pre.to||'');
+  }
   document.getElementById('st-delete').style.display=s?'':'none';
   document.getElementById('statModal').style.display='flex';
   setTimeout(function(){
@@ -3147,7 +3248,7 @@ function openStatModal(id,presetMetric){
 }
 function closeStatModal(){
   document.getElementById('statModal').style.display='none';
-  editingStatId=null;
+  editingStatId=null;editingStatTaskId=null;
 }
 async function saveStat(){
   var sel=document.getElementById('st-metric').value;
@@ -3159,15 +3260,33 @@ async function saveStat(){
   if(!metric){toast('Choose what the number is for','error');return;}
   if(!isFinite(value)){toast('Enter a number','error');document.getElementById('st-value').focus();return;}
   if(!date){toast('Pick a date','error');return;}
+  var campaignId='',from='',to='';
+  if(S.statsLinkReady){
+    campaignId=document.getElementById('st-campaign').value;
+    from=document.getElementById('st-from').value;
+    to=document.getElementById('st-to').value;
+    if((from&&!to)||(to&&!from)){toast('Fill in both "Covers" dates, or leave both empty','error');return;}
+    if(from&&to&&to<from){toast('The end date is before the start date','error');return;}
+  }
   // Re-use the existing spelling if this name is already used (any capitalisation)
   var known=statMetricOptions().filter(function(n){return n.toLowerCase()===metric.toLowerCase();})[0];
   if(known)metric=known;
   var payload={metric:metric,value:value,stat_date:date,note:note};
+  if(S.statsLinkReady){
+    // keep the link to a specific task only while that task still belongs to the chosen campaign
+    var taskId=editingStatTaskId;
+    if(taskId){var tk=S.tasks.find(function(x){return x.id===taskId;});if(!tk||tk.campaign_id!==campaignId)taskId=null;}
+    payload.campaign_id=campaignId||null;
+    payload.task_id=taskId||null;
+    payload.period_start=from||null;
+    payload.period_end=to||null;
+  }
   var wasEditing=!!editingStatId;
   var res=wasEditing?await db.from('manual_stats').update(payload).eq('id',editingStatId).select():await db.from('manual_stats').insert(payload).select();
   if(res.error){
     var m=res.error.message||'',c=res.error.code||'';
     if(c==='42501'||/row-level security/i.test(m))toast('Supabase blocked that. Run the manual stats setup SQL again (including the policy line).','error');
+    else if(statsErrorKind(res.error)==='upgrade')toast('One more setup step: run the update SQL shown on the Analytics page (Manual stats), then try again.','error');
     else if(statsErrorKind(res.error)==='setup')toast('The manual_stats table does not exist yet. Run the setup SQL first.','error');
     else toast('Could not save: '+m,'error');
     return;
@@ -3194,6 +3313,96 @@ function deleteStatFromModal(){
   var id=editingStatId;
   closeStatModal();
   if(id)deleteStat(id);
+}
+
+// RESULTS on a campaign page: numbers linked to this campaign, plus one row per blog post tracking its first 30 days
+function campaignResultsHtml(camp){
+  // nothing until the stats have loaded (avoids a flash of the wrong message) or if the table is not set up
+  if(!S.statsLoadedAt||S.manualStatsError)return '';
+  var blogs=S.tasks.filter(function(t){return t.campaign_id===camp.id&&t.channel==='blogs';})
+    .sort(function(a,b){return String(a.due_date||'9999').localeCompare(String(b.due_date||'9999'));});
+  var linked=S.statsLinkReady?S.manualStats.filter(function(s){return s.campaign_id===camp.id;}).sort(statNewestFirst):[];
+  if(!blogs.length&&!linked.length)return '';
+  var today=statToday(),used={};
+  var pencil='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>';
+  var sub='font-size:11px;color:var(--text3);margin-top:2px;';
+  var sect='padding:7px 14px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text3);background:var(--surface2);';
+  function row(left,right){
+    return '<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-top:1px solid var(--border);flex-wrap:wrap;"><div style="flex:1;min-width:200px;">'+left+'</div><div style="display:flex;align-items:center;gap:8px;">'+right+'</div></div>';
+  }
+  function editBtn(id){return '<button class="btn-icon" data-id="'+esc(id)+'" onclick="openStatModal(this.dataset.id)" title="Edit">'+pencil+'</button>';}
+  function bigNum(v,unit){return '<div style="font-size:18px;font-weight:700;color:var(--text);">'+statFmt(v)+(unit?' <span style="font-size:11px;font-weight:400;color:var(--text3);">'+unit+'</span>':'')+'</div>';}
+  var h='<div style="display:flex;flex-direction:column;gap:8px;">';
+  h+='<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">';
+  h+='<div style="font-size:13px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:8px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>Results <span style="font-weight:400;font-size:11px;color:var(--text3);">numbers you record for this campaign</span></div>';
+  if(S.statsLinkReady)h+='<button class="btn btn-ghost btn-sm" data-camp="'+esc(camp.id)+'" onclick="addCampaignResult(this.dataset.camp)">+ Add result</button>';
+  h+='</div>';
+  h+='<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;">';
+  if(!S.statsLinkReady){
+    h+='<div style="padding:12px 14px;font-size:12px;color:var(--text3);">To record results here, such as the first '+BLOG_WINDOW_DAYS+' days of page views for a blog post, run the one-off update SQL shown on the Analytics page under Manual stats, then refresh.</div>';
+  }else{
+    if(blogs.length){
+      h+='<div style="'+sect+'">Blog posts — page views in the first '+BLOG_WINDOW_DAYS+' days after publishing</div>';
+      blogs.forEach(function(t){
+        var recs=linked.filter(function(s){return s.task_id===t.id;});
+        recs.forEach(function(s){used[s.id]=1;});
+        var rec=recs[0],pd=t.due_date||'',left='<div style="font-size:13px;color:var(--text);">'+esc(t.task)+'</div>',right='';
+        if(rec){
+          left+='<div style="'+sub+'">Counted '+esc(statPeriodText(rec)||'—')+' · recorded '+statDateFmt(rec.stat_date)+'</div>';
+          right=bigNum(rec.value,'views')+editBtn(rec.id);
+        }else if(!pd){
+          left+='<div style="'+sub+'">Give this task an activity date (the publishing date) to start the '+BLOG_WINDOW_DAYS+' days.</div>';
+        }else{
+          var end=statAddDays(pd,BLOG_WINDOW_DAYS-1);
+          var win=statPeriodText({period_start:pd,period_end:end});
+          if(!t.done){
+            left+='<div style="'+sub+'">Not published yet · planned '+statDateFmt(pd)+'</div>';
+          }else if(today<pd){
+            left+='<div style="'+sub+'">Publishes '+statDateFmt(pd)+' · the '+BLOG_WINDOW_DAYS+' days run '+esc(win)+'</div>';
+          }else if(today<=end){
+            var n=statDaysBetween(today,end);
+            left+='<div style="'+sub+'">Counting '+esc(win)+' · '+(n===0?'ends today':n===1?'1 day left':n+' days left')+'</div>';
+            right='<button class="btn btn-ghost btn-sm" data-task="'+esc(t.id)+'" onclick="addBlogResult(this.dataset.task)">Add result</button>';
+          }else{
+            left+='<div style="'+sub+'color:var(--navy);font-weight:700;">'+BLOG_WINDOW_DAYS+' days are up · '+esc(win)+'</div>';
+            right='<button class="btn btn-red btn-sm" data-task="'+esc(t.id)+'" onclick="addBlogResult(this.dataset.task)">Add result</button>';
+          }
+        }
+        h+=row(left,right);
+      });
+    }
+    var others=linked.filter(function(s){return !used[s.id];});
+    if(others.length){
+      h+='<div style="'+sect+(blogs.length?'border-top:1px solid var(--border);':'')+'">Other results</div>';
+      others.forEach(function(s){
+        var p=statPeriodText(s);
+        h+=row('<div style="font-size:13px;color:var(--text);">'+esc(s.metric)+'</div><div style="'+sub+'">'+(p?esc(p)+' · ':'')+'recorded '+statDateFmt(s.stat_date)+(s.note?' · '+esc(s.note):'')+'</div>',bigNum(s.value)+editBtn(s.id));
+      });
+    }
+  }
+  h+='</div></div>';
+  return h;
+}
+function addCampaignResult(campId){openStatModal(null,'',{campaignId:campId});}
+function addBlogResult(taskId){
+  var t=S.tasks.find(function(x){return x.id===taskId;});
+  if(!t||!t.due_date)return;
+  openStatModal(null,'Blog page views',{campaignId:t.campaign_id,taskId:t.id,from:t.due_date,to:statAddDays(t.due_date,BLOG_WINDOW_DAYS-1),note:t.task});
+}
+// Called after a campaign page has been drawn: loads the stats if they are old/missing, then fills the Results block in place
+var statsLoadPromise=null;
+async function refreshCampaignResults(campId){
+  if(!S.statsLoadedAt||Date.now()-S.statsLoadedAt>15000){
+    // one load at a time, even if the page is redrawn several times while it is in flight
+    if(!statsLoadPromise)statsLoadPromise=loadManualStats().then(function(){statsLoadPromise=null;});
+    await statsLoadPromise;
+  }
+  if(S.activeChannel!=='campaign_'+campId)return;
+  var el=document.getElementById('camp-results'),camp=S.campaigns.find(function(x){return x.id===campId;});
+  if(!el||!camp)return;
+  var html=campaignResultsHtml(camp);
+  el.innerHTML=html;
+  el.style.display=html?'':'none';
 }
 
 async function duplicateCampaign(id){
@@ -3440,6 +3649,10 @@ async function renderCampaign(campaignId){
     h+='<div id="'+mcStatsContainerId+'" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px;font-size:12px;color:var(--text3);">Loading Mailchimp stats…</div>';
   }
 
+  // Results block: numbers recorded for this campaign (e.g. a blog post's first 30 days of page views). Filled in from the manual stats once they have loaded
+  var resultsHtml=campaignResultsHtml(camp);
+  h+='<div id="camp-results"'+(resultsHtml?'':' style="display:none;"')+'>'+resultsHtml+'</div>';
+
   // Channel breakdown cards
   var chKeys=Object.keys(byChannel);
   if(chKeys.length){
@@ -3466,6 +3679,8 @@ async function renderCampaign(campaignId){
   h+='<div class="notes-card"><span class="notes-label">Campaign notes</span>';
   h+='<textarea placeholder="Notes about this campaign..." onchange="saveNoteById(\''+nk+'\',this.value)">'+esc(S.notes[nk]||'')+'</textarea></div>';
   setMainHTML(h);
+
+  refreshCampaignResults(camp.id);
 
   // Fetch Mailchimp stats AFTER the page is already visible — this used to
   // run with `await` before setMainHTML, which meant the entire rest of the
