@@ -338,6 +338,16 @@ thead th{position:sticky;top:0;z-index:2;background:var(--grey-light);}
 .camp-fill{height:4px;border-radius:2px;}
 .camp-meta{display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-top:5px;}
 .camp-channels{padding:10px 16px;display:flex;gap:5px;flex-wrap:wrap;align-items:center;}
+/* performance summary on a campaign card */
+.camp-perf{padding:9px 16px;border-bottom:1px solid var(--border);background:var(--surface2);display:flex;flex-direction:column;gap:5px;}
+.camp-perf .cp-row{display:flex;align-items:baseline;gap:8px;font-size:11px;color:var(--text2);}
+.camp-perf .cp-label{flex:0 0 54px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text3);}
+.camp-perf .cp-vals{display:flex;flex-wrap:wrap;gap:1px 10px;}
+.camp-perf .cp-vals span{white-space:nowrap;}
+.camp-perf .cp-vals b{color:var(--text);font-weight:700;}
+.camp-perf .cp-empty{font-size:11px;color:var(--text3);}
+.stat-card.static{cursor:default;}
+.stat-card.static:hover{transform:none;box-shadow:none;}
 /* TOAST */
 .toast-wrap{position:fixed;bottom:18px;right:18px;display:flex;flex-direction:column;gap:5px;z-index:200;}
 .toast{background:var(--navy);color:#fff;border-radius:var(--radius);padding:9px 14px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:7px;animation:toastIn 0.2s ease;max-width:250px;box-shadow:0 4px 12px rgba(0,0,0,0.15);}
@@ -379,6 +389,7 @@ thead th{position:sticky;top:0;z-index:2;background:var(--grey-light);}
   main{padding:14px;}
   .td-relates,.td-owner,.td-date{display:none;}
   .summary-grid{grid-template-columns:1fr 1fr;}
+  .li-grid>.stat-card:first-child{grid-column:1/-1;}
   .channel-grid{grid-template-columns:1fr;}
   #mobileMenuBtn{display:flex;}
 }
@@ -653,6 +664,7 @@ thead th{position:sticky;top:0;z-index:2;background:var(--grey-light);}
         </div>
       </div>
     </div>
+    <div id="st-pct-hint" style="display:none;font-size:11px;color:var(--text3);margin-bottom:8px;">This one is a percentage: type 2.5 for 2.5%.</div>
     <div id="st-link-off" style="display:none;font-size:11px;color:var(--text3);margin-bottom:8px;">To link a number to a campaign, run the one-off update SQL shown on the Analytics page under Manual stats.</div>
     <div id="st-tip" style="display:none;font-size:11px;color:var(--text3);margin-bottom:8px;">Tip: in Google Analytics open Reports → Engagement → Pages and screens, set the dates above, search for the post and use its Views number.</div>
     <div style="font-size:11px;color:var(--text3);">Each entry is a reading on that date. Add a new one whenever you update the number and the dashboard shows the change.</div>
@@ -660,6 +672,45 @@ thead th{position:sticky;top:0;z-index:2;background:var(--grey-light);}
       <button class="btn btn-ghost" onclick="closeStatModal()">Cancel</button>
       <button class="btn btn-ghost" id="st-delete" style="display:none;color:var(--red);border-color:var(--red);" onclick="deleteStatFromModal()">Delete</button>
       <button class="btn btn-red" onclick="saveStat()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- LINKEDIN RESULTS MODAL -->
+<div class="modal-overlay" id="liModal" style="display:none;" onclick="if(event.target===this)closeLiModal();">
+  <div class="modal" style="width:440px;">
+    <div class="modal-title" id="liModalTitle">Add LinkedIn results</div>
+    <div class="form-2col">
+      <div class="form-row"><label>Impressions</label><input type="number" id="li-imp" step="any" min="0" placeholder="e.g. 12400" oninput="liRecalc()" onkeydown="if(event.key==='Enter'){event.preventDefault();saveLi();}"/></div>
+      <div class="form-row"><label>Clicks</label><input type="number" id="li-clk" step="any" min="0" placeholder="e.g. 310" oninput="liRecalc()" onkeydown="if(event.key==='Enter'){event.preventDefault();saveLi();}"/></div>
+    </div>
+    <div class="form-2col">
+      <div class="form-row"><label>CTR (%)</label><input type="number" id="li-ctr" step="any" min="0" placeholder="worked out for you" oninput="liCtrTyped()" onkeydown="if(event.key==='Enter'){event.preventDefault();saveLi();}"/></div>
+      <div class="form-row"><label>Date</label><input type="date" id="li-date"/></div>
+    </div>
+    <div style="font-size:11px;color:var(--text3);margin:-4px 0 10px;">CTR is clicks ÷ impressions and fills in by itself. Type over it if LinkedIn shows a different figure.</div>
+    <div id="li-link-fields">
+      <div class="form-row"><label>Campaign <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text3);">(optional)</span></label>
+        <select id="li-campaign"></select>
+      </div>
+      <div class="form-row"><label>Covers <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text3);">(optional, the dates these numbers are for)</span></label>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <input type="date" id="li-from" style="flex:1;"/><span style="font-size:12px;color:var(--text3);">to</span><input type="date" id="li-to" style="flex:1;"/>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;margin-top:6px;flex-wrap:wrap;">
+          <button type="button" class="btn btn-ghost btn-sm" onclick="liUseCampaignDates()">Campaign dates</button>
+          <span style="font-size:11px;color:var(--text3);">or end date</span>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="statSetWindow(7,'li-from','li-to')">+7 days</button>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="statSetWindow(30,'li-from','li-to')">+30 days</button>
+        </div>
+      </div>
+    </div>
+    <div class="form-row"><label>Note <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text3);">(optional)</span></label><input type="text" id="li-note" placeholder="e.g. launch post, or whole campaign" onkeydown="if(event.key==='Enter'){event.preventDefault();saveLi();}"/></div>
+    <div style="font-size:11px;color:var(--text3);">Tip: in LinkedIn analytics set the same dates, then copy Impressions, Clicks and Click-through rate (CTR). Add a new set whenever you update the numbers and the dashboard shows the change.</div>
+    <div class="form-actions">
+      <button class="btn btn-ghost" onclick="closeLiModal()">Cancel</button>
+      <button class="btn btn-ghost" id="li-delete" style="display:none;color:var(--red);border-color:var(--red);" onclick="deleteLiSet()">Delete</button>
+      <button class="btn btn-red" onclick="saveLi()">Save</button>
     </div>
   </div>
 </div>
@@ -1672,6 +1723,7 @@ function renderOverview(){
       h+='<div class="camp-meta"><span>'+cd+' of '+ct.length+' tasks &middot; '+cp+'%</span>';
       h+=(co>0?'<span style="color:var(--red);">'+co+' overdue</span>':'<span>On track</span>')+'</div>';
       h+='</div>';
+      h+=campPerfBand(camp);
       h+='<div class="camp-channels">';
       chKeys.forEach(function(k){
         var ch=S.channels.find(function(x){return x.key===k;});
@@ -1705,6 +1757,7 @@ function renderOverview(){
   const nk=`overview_${getPeriodKey()}`;
   h+=`<div class="notes-card"><span class="notes-label">Notes — ${getPeriodLabel()}</span><textarea placeholder="General campaign notes for this period…" onchange="saveNote('${nk}',this.value)">${esc(S.notes[nk]||'')}</textarea></div>`;
   setMainHTML(h);
+  refreshCampaignPerf();
 }
 
 function renderActivityPreview(){
@@ -2525,6 +2578,7 @@ function renderCampaignsPage(){
       h+='<div class="camp-bar"><div class="camp-fill" style="width:'+cp+'%;background:'+(camp.color||'var(--red)')+'"></div></div>';
       h+='<div class="camp-meta"><span>'+cd+' of '+ct.length+' tasks &middot; '+cp+'%</span>';
       h+=(co>0?'<span style="color:var(--red);">'+co+' overdue</span>':'<span>On track</span>')+'</div></div>';
+      h+=campPerfBand(camp);
       h+='<div class="camp-channels">';
       chKeys.forEach(function(k){
         var ch=S.channels.find(function(x){return x.key===k;});
@@ -2542,6 +2596,7 @@ function renderCampaignsPage(){
     h+='</div>';
   }
   setMainHTML(h);
+  refreshCampaignPerf();
 }
 
 
@@ -2969,7 +3024,11 @@ function renderAnalyticsPage(mcLists,mcCampaigns){
 }
 
 // MANUAL STATS — numbers typed in by hand (YouTube views, blog page views, Search Console clicks…)
-var STAT_PRESETS=['YouTube views','YouTube subscribers','Blog page views','Website visits','Search Console clicks','Search Console impressions','Podcast downloads','Social media followers','Social media impressions'];
+var STAT_PRESETS=['LinkedIn impressions','LinkedIn clicks','LinkedIn CTR','LinkedIn followers','Blog page views','YouTube views','YouTube subscribers','Website visits','Search Console clicks','Search Console impressions','Podcast downloads'];
+// quick-add buttons shown before any number has been added (LinkedIn has its own combined form)
+var STAT_CHIPS=['Blog page views','YouTube views','YouTube subscribers','Website visits','Search Console clicks','Podcast downloads'];
+var LI_IMP='LinkedIn impressions',LI_CLK='LinkedIn clicks',LI_CTR='LinkedIn CTR';
+var LI_METRICS=[LI_IMP,LI_CLK,LI_CTR];
 var STATS_SQL=[
   'create table if not exists public.manual_stats (',
   '  id uuid primary key default gen_random_uuid(),',
@@ -2998,6 +3057,29 @@ var editingStatId=null,editingStatTaskId=null;
 var BLOG_WINDOW_DAYS=30;
 
 function statFmt(n){return Number(n).toLocaleString('en-GB',{maximumFractionDigits:2});}
+// Rates (CTR, "… rate") are percentages: stored as 2.5 for 2.5% and shown as 2.50%
+function statIsPercent(m){return /(^|\s)(ctr|rate)(\s|$)|%\s*$/i.test(m||'');}
+function statFmtVal(m,v){
+  if(statIsPercent(m))return (Math.round(Number(v)*100)/100).toFixed(2)+'%';
+  return statFmt(v);
+}
+// change between two readings: +250 for a count, +0.30 pts for a percentage
+function statFmtDiff(m,d){
+  if(statIsPercent(m))return (d>0?'+':'')+(Math.round(d*100)/100).toFixed(2)+' pts';
+  return (d>0?'+':'')+statFmt(d);
+}
+// readings of one metric within a list of rows, newest first
+function statSeries(rows,metric){return rows.filter(function(s){return s.metric===metric;}).sort(statNewestFirst);}
+// "▲ +250 (+25.00%)" for a reading against the one before it, or "First reading"
+function statDeltaHtml(metric,latest,prev){
+  if(!prev)return 'First reading';
+  var diff=Number(latest.value)-Number(prev.value);
+  var up=diff>0,down=diff<0;
+  var col=up?'#1a7f37':down?'#b42318':'#949494';
+  var arrow=up?'▲':down?'▼':'–';
+  var pct=Number(prev.value)!==0?' ('+(up?'+':'')+(Math.round(diff/Math.abs(Number(prev.value))*10000)/100).toFixed(2)+'%)':'';
+  return '<span style="color:'+col+';font-weight:700;">'+arrow+' '+statFmtDiff(metric,diff)+pct+'</span>';
+}
 function statDateFmt(d){return d?new Date(d+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}):'—';}
 function statToday(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function statNewestFirst(a,b){
@@ -3081,7 +3163,7 @@ function renderManualStatsSection(){
   h+='<div style="font-size:13px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:8px;">';
   h+='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>';
   h+='Manual stats <span style="font-weight:400;font-size:11px;color:var(--text3);">numbers you type in yourself</span></div>';
-  if(!S.manualStatsError)h+='<button class="btn btn-red btn-sm" onclick="openStatModal()">+ Add stat</button>';
+  if(!S.manualStatsError)h+='<div style="display:flex;gap:6px;flex-wrap:wrap;"><button class="btn btn-ghost btn-sm" onclick="openLiModal()">+ LinkedIn results</button><button class="btn btn-red btn-sm" onclick="openStatModal()">+ Add stat</button></div>';
   h+='</div>';
 
   var box='background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;';
@@ -3112,7 +3194,8 @@ function renderManualStatsSection(){
     h+='<div style="font-size:14px;font-weight:700;color:var(--text);">No numbers added yet</div>';
     h+='<div style="font-size:12px;color:var(--text3);margin:4px 0 12px;">Pick one to log your first number. You can add more any time.</div>';
     h+='<div style="display:flex;flex-wrap:wrap;gap:8px;">';
-    STAT_PRESETS.slice(0,6).forEach(function(n){
+    h+='<button class="btn btn-ghost btn-sm" onclick="openLiModal()">+ LinkedIn impressions, clicks &amp; CTR</button>';
+    STAT_CHIPS.forEach(function(n){
       h+='<button class="btn btn-ghost btn-sm" data-metric="'+esc(n)+'" onclick="openStatModal(null,this.dataset.metric)">+ '+esc(n)+'</button>';
     });
     h+='</div></div>';
@@ -3128,18 +3211,10 @@ function renderManualStatsSection(){
   if(names.length)h+='<div style="display:flex;flex-direction:column;gap:6px;"><div class="summary-grid">';
   names.forEach(function(name,i){
     var list=groups[name],latest=list[0],prev=list[1];
-    var line1='First reading';
-    if(prev){
-      var diff=Number(latest.value)-Number(prev.value);
-      var up=diff>0,down=diff<0;
-      var col=up?'#1a7f37':down?'#b42318':'#949494';
-      var arrow=up?'▲':down?'▼':'–';
-      var pct=Number(prev.value)!==0?' ('+(up?'+':'')+(Math.round(diff/Math.abs(Number(prev.value))*10000)/100).toFixed(2)+'%)':'';
-      line1='<span style="color:'+col+';font-weight:700;">'+arrow+' '+(up?'+':'')+statFmt(diff)+pct+'</span>';
-    }
+    var line1=statDeltaHtml(name,latest,prev);
     h+='<div class="stat-card" data-metric="'+esc(name)+'" onclick="openStatModal(null,this.dataset.metric)" title="Click to add a new reading" style="border-top-color:'+colours[i%colours.length]+';">';
     h+='<div class="sc-label">'+esc(name)+'</div>';
-    h+='<div class="sc-value">'+statFmt(latest.value)+'</div>';
+    h+='<div class="sc-value">'+statFmtVal(name,latest.value)+'</div>';
     h+='<div class="sc-sub">'+line1+'</div>';
     h+='<div class="sc-sub">'+statDateFmt(latest.stat_date)+(latest.note?' · '+esc(latest.note):'')+'</div>';
     h+=statSparkline(list.slice(0,12).reverse().map(function(x){return Number(x.value);}));
@@ -3158,7 +3233,7 @@ function renderManualStatsSection(){
     h+='<tr>';
     h+='<td style="font-size:11px;color:var(--text3);white-space:nowrap;">'+statDateFmt(s.stat_date)+'</td>';
     h+='<td style="font-size:12px;color:var(--text);">'+esc(s.metric)+'</td>';
-    h+='<td style="font-size:12px;text-align:right;font-weight:700;">'+statFmt(s.value)+'</td>';
+    h+='<td style="font-size:12px;text-align:right;font-weight:700;">'+statFmtVal(s.metric,s.value)+'</td>';
     h+='<td style="font-size:12px;color:var(--text2);">'+(cn||'<span style="color:var(--text3);">—</span>')+(pr?'<div style="font-size:10px;color:var(--text3);">'+esc(pr)+'</div>':'')+'</td>';
     h+='<td style="font-size:12px;color:var(--text3);">'+esc(s.note||'')+'</td>';
     h+='<td style="text-align:right;white-space:nowrap;">';
@@ -3202,10 +3277,12 @@ function statMetricChanged(){
   inp.style.display=custom?'block':'none';
   var tip=document.getElementById('st-tip');
   if(tip)tip.style.display=metric==='Blog page views'?'':'none';
+  var ph=document.getElementById('st-pct-hint');
+  if(ph)ph.style.display=statIsPercent(metric)?'':'none';
   if(custom)inp.focus();
 }
-function fillStatCampaignOptions(selected){
-  var sel=document.getElementById('st-campaign');
+function fillStatCampaignOptions(selected,selId){
+  var sel=document.getElementById(selId||'st-campaign');
   var html='<option value="">— Not linked —</option>';
   S.campaigns.forEach(function(c){html+='<option value="'+esc(c.id)+'">'+esc(c.name)+'</option>';});
   if(selected&&!S.campaigns.some(function(c){return c.id===selected;}))html+='<option value="'+esc(selected)+'">(deleted campaign)</option>';
@@ -3213,10 +3290,11 @@ function fillStatCampaignOptions(selected){
   sel.value=selected||'';
 }
 // End date = start date + N days (counting the start day), e.g. 30 days from 3 Nov ends on 2 Dec
-function statSetWindow(n){
-  var from=document.getElementById('st-from').value;
-  if(!from){toast('Pick the start date first (the day it was published)','error');document.getElementById('st-from').focus();return;}
-  document.getElementById('st-to').value=statAddDays(from,n-1);
+function statSetWindow(n,fromId,toId){
+  fromId=fromId||'st-from';toId=toId||'st-to';
+  var from=document.getElementById(fromId).value;
+  if(!from){toast('Pick the start date first','error');document.getElementById(fromId).focus();return;}
+  document.getElementById(toId).value=statAddDays(from,n-1);
 }
 // pre (optional) pre-fills a new entry: {campaignId, taskId, from, to, note}
 function openStatModal(id,presetMetric,pre){
@@ -3249,6 +3327,14 @@ function openStatModal(id,presetMetric,pre){
 function closeStatModal(){
   document.getElementById('statModal').style.display='none';
   editingStatId=null;editingStatTaskId=null;
+}
+// one place that turns a failed save into a plain-English message
+function statErrorToast(err){
+  var m=(err&&err.message)||'',c=(err&&err.code)||'';
+  if(c==='42501'||/row-level security/i.test(m))toast('Supabase blocked that. Run the manual stats setup SQL again (including the policy line).','error');
+  else if(statsErrorKind(err)==='upgrade')toast('One more setup step: run the update SQL shown on the Analytics page (Manual stats), then try again.','error');
+  else if(statsErrorKind(err)==='setup')toast('The manual_stats table does not exist yet. Run the setup SQL first.','error');
+  else toast('Could not save: '+m,'error');
 }
 async function saveStat(){
   var sel=document.getElementById('st-metric').value;
@@ -3283,14 +3369,7 @@ async function saveStat(){
   }
   var wasEditing=!!editingStatId;
   var res=wasEditing?await db.from('manual_stats').update(payload).eq('id',editingStatId).select():await db.from('manual_stats').insert(payload).select();
-  if(res.error){
-    var m=res.error.message||'',c=res.error.code||'';
-    if(c==='42501'||/row-level security/i.test(m))toast('Supabase blocked that. Run the manual stats setup SQL again (including the policy line).','error');
-    else if(statsErrorKind(res.error)==='upgrade')toast('One more setup step: run the update SQL shown on the Analytics page (Manual stats), then try again.','error');
-    else if(statsErrorKind(res.error)==='setup')toast('The manual_stats table does not exist yet. Run the setup SQL first.','error');
-    else toast('Could not save: '+m,'error');
-    return;
-  }
+  if(res.error){statErrorToast(res.error);return;}
   if(!res.data||!res.data[0]){toast('Not saved. Supabase did not accept it, so run the setup SQL again (including the policy line).','error');return;}
   var row=res.data[0];
   S.manualStats=wasEditing?S.manualStats.map(function(x){return x.id===row.id?row:x;}):[row].concat(S.manualStats);
@@ -3302,7 +3381,7 @@ async function saveStat(){
 async function deleteStat(id){
   var s=S.manualStats.find(function(x){return x.id===id;});
   if(!s)return;
-  if(!confirm('Delete this entry?\n\n'+s.metric+': '+statFmt(s.value)+' ('+statDateFmt(s.stat_date)+')'))return;
+  if(!confirm('Delete this entry?\n\n'+s.metric+': '+statFmtVal(s.metric,s.value)+' ('+statDateFmt(s.stat_date)+')'))return;
   var r=await db.from('manual_stats').delete().eq('id',id).select();
   if(r.error||!r.data||!r.data.length){toast('Could not delete that entry','error');return;}
   S.manualStats=S.manualStats.filter(function(x){return x.id!==id;});
@@ -3315,14 +3394,12 @@ function deleteStatFromModal(){
   if(id)deleteStat(id);
 }
 
-// RESULTS on a campaign page: numbers linked to this campaign, plus one row per blog post tracking its first 30 days
+// PERFORMANCE on a campaign page: LinkedIn numbers, one row per blog post (its first 30 days) and any other results linked to this campaign
 function campaignResultsHtml(camp){
-  // nothing until the stats have loaded (avoids a flash of the wrong message) or if the table is not set up
-  if(!S.statsLoadedAt||S.manualStatsError)return '';
-  var blogs=S.tasks.filter(function(t){return t.campaign_id===camp.id&&t.channel==='blogs';})
-    .sort(function(a,b){return String(a.due_date||'9999').localeCompare(String(b.due_date||'9999'));});
-  var linked=S.statsLinkReady?S.manualStats.filter(function(s){return s.campaign_id===camp.id;}).sort(statNewestFirst):[];
-  if(!blogs.length&&!linked.length)return '';
+  // nothing until the stats have loaded (avoids a flash of the wrong message); a failed load shows nothing
+  if(!S.statsLoadedAt)return '';
+  if(S.manualStatsError&&S.manualStatsError!=='setup')return '';
+  var linkOK=!S.manualStatsError&&S.statsLinkReady;
   var today=statToday(),used={};
   var pencil='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>';
   var sub='font-size:11px;color:var(--text3);margin-top:2px;';
@@ -3331,25 +3408,67 @@ function campaignResultsHtml(camp){
     return '<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-top:1px solid var(--border);flex-wrap:wrap;"><div style="flex:1;min-width:200px;">'+left+'</div><div style="display:flex;align-items:center;gap:8px;">'+right+'</div></div>';
   }
   function editBtn(id){return '<button class="btn-icon" data-id="'+esc(id)+'" onclick="openStatModal(this.dataset.id)" title="Edit">'+pencil+'</button>';}
-  function bigNum(v,unit){return '<div style="font-size:18px;font-weight:700;color:var(--text);">'+statFmt(v)+(unit?' <span style="font-size:11px;font-weight:400;color:var(--text3);">'+unit+'</span>':'')+'</div>';}
+  function bigNum(metric,v,unit){return '<div style="font-size:18px;font-weight:700;color:var(--text);">'+statFmtVal(metric,v)+(unit?' <span style="font-size:11px;font-weight:400;color:var(--text3);">'+unit+'</span>':'')+'</div>';}
   var h='<div style="display:flex;flex-direction:column;gap:8px;">';
-  h+='<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">';
-  h+='<div style="font-size:13px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:8px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>Results <span style="font-weight:400;font-size:11px;color:var(--text3);">numbers you record for this campaign</span></div>';
-  if(S.statsLinkReady)h+='<button class="btn btn-ghost btn-sm" data-camp="'+esc(camp.id)+'" onclick="addCampaignResult(this.dataset.camp)">+ Add result</button>';
+  h+='<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">';
+  h+='<div style="font-size:13px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:8px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>Performance <span style="font-weight:400;font-size:11px;color:var(--text3);">numbers you record for this campaign</span></div>';
+  if(linkOK){
+    h+='<div style="display:flex;gap:6px;flex-wrap:wrap;">';
+    h+='<button class="btn btn-ghost btn-sm" data-camp="'+esc(camp.id)+'" onclick="openLiModal(this.dataset.camp)">+ LinkedIn results</button>';
+    h+='<button class="btn btn-ghost btn-sm" data-camp="'+esc(camp.id)+'" onclick="addCampaignResult(this.dataset.camp)">+ Add result</button>';
+    h+='</div>';
+  }
   h+='</div>';
   h+='<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;">';
-  if(!S.statsLinkReady){
-    h+='<div style="padding:12px 14px;font-size:12px;color:var(--text3);">To record results here, such as the first '+BLOG_WINDOW_DAYS+' days of page views for a blog post, run the one-off update SQL shown on the Analytics page under Manual stats, then refresh.</div>';
+  if(!linkOK){
+    h+='<div style="padding:12px 14px;font-size:12px;color:var(--text3);">'+(S.manualStatsError==='setup'
+      ?'To record performance here (LinkedIn impressions, clicks and CTR, blog page views and more), do the one-time setup first: open Analytics, find Manual stats, click Copy SQL, run it in Supabase, then refresh.'
+      :'To record performance here (LinkedIn impressions, clicks and CTR, blog page views and more), run the one-off update SQL shown on the Analytics page under Manual stats, then refresh.')+'</div>';
   }else{
+    var linked=S.manualStats.filter(function(s){return s.campaign_id===camp.id;}).sort(statNewestFirst);
+    var blogs=S.tasks.filter(function(t){return t.campaign_id===camp.id&&t.channel==='blogs';})
+      .sort(function(a,b){return String(a.due_date||'9999').localeCompare(String(b.due_date||'9999'));});
+
+    // LinkedIn: the latest impressions, clicks and CTR recorded for this campaign, and how they changed since the reading before
+    var liRows=linked.filter(function(s){return LI_METRICS.indexOf(s.metric)>-1;});
+    h+='<div style="'+sect+'display:flex;align-items:center;justify-content:space-between;gap:8px;">LinkedIn';
+    if(liRows.length)h+='<button class="btn-icon" data-camp="'+esc(camp.id)+'" onclick="openLiModal(this.dataset.camp,true)" title="Edit the latest LinkedIn numbers" style="padding:0 4px;">'+pencil+'</button>';
+    h+='</div>';
+    if(liRows.length){
+      var sImp=statSeries(liRows,LI_IMP),sClk=statSeries(liRows,LI_CLK),sCtr=statSeries(liRows,LI_CTR);
+      var liSeries=[[LI_IMP,'Impressions',sImp],[LI_CLK,'Clicks',sClk],[LI_CTR,'CTR',sCtr]];
+      // "21 Sept – 7 Nov 2026 · recorded 8 Nov 2026 · note". Numbers saved together share it, so it is written once under the tiles
+      function liMeta(r){var p=statPeriodText(r);return (p?esc(p)+' · ':'')+'recorded '+statDateFmt(r.stat_date)+(r.note?' · '+esc(r.note):'');}
+      var metas=[];
+      liSeries.forEach(function(x){if(x[2][0]){var m=liMeta(x[2][0]);if(metas.indexOf(m)===-1)metas.push(m);}});
+      var sharedMeta=metas.length===1?metas[0]:'';
+      h+='<div style="padding:12px;"><div class="summary-grid li-grid">';
+      liSeries.forEach(function(x,i){
+        var latest=x[2][0],prev=x[2][1],val='—',delta='',note='Not recorded yet';
+        if(latest){
+          val=statFmtVal(x[0],latest.value);delta=statDeltaHtml(x[0],latest,prev);
+          note=sharedMeta?'':liMeta(latest);
+        }else if(x[0]===LI_CTR&&sImp[0]&&sClk[0]){
+          var c=liCalcCtr(sImp[0].value,sClk[0].value);
+          if(c!=null){val=statFmtVal(LI_CTR,c);note='Worked out from clicks ÷ impressions';}
+        }
+        h+='<div class="stat-card static" style="border-top-color:'+['#003F75','#990700','#00519a'][i]+';"><div class="sc-label">'+x[1]+'</div><div class="sc-value">'+val+'</div>'+(delta?'<div class="sc-sub">'+delta+'</div>':'')+(note?'<div class="sc-sub">'+note+'</div>':'')+'</div>';
+      });
+      h+='</div>'+(sharedMeta?'<div class="sc-sub li-meta" style="margin-top:8px;">'+sharedMeta+'</div>':'')+'</div>';
+    }else{
+      h+='<div style="padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;"><div style="font-size:12px;color:var(--text3);flex:1;min-width:200px;">No LinkedIn numbers yet. Add impressions, clicks and CTR from LinkedIn analytics.</div><button class="btn btn-red btn-sm" data-camp="'+esc(camp.id)+'" onclick="openLiModal(this.dataset.camp)">+ Add LinkedIn results</button></div>';
+    }
+
+    // Blog posts: one row each, tracking the first 30 days after the post is published
     if(blogs.length){
-      h+='<div style="'+sect+'">Blog posts — page views in the first '+BLOG_WINDOW_DAYS+' days after publishing</div>';
+      h+='<div style="'+sect+'border-top:1px solid var(--border);">Blog posts — page views in the first '+BLOG_WINDOW_DAYS+' days after publishing</div>';
       blogs.forEach(function(t){
         var recs=linked.filter(function(s){return s.task_id===t.id;});
         recs.forEach(function(s){used[s.id]=1;});
         var rec=recs[0],pd=t.due_date||'',left='<div style="font-size:13px;color:var(--text);">'+esc(t.task)+'</div>',right='';
         if(rec){
           left+='<div style="'+sub+'">Counted '+esc(statPeriodText(rec)||'—')+' · recorded '+statDateFmt(rec.stat_date)+'</div>';
-          right=bigNum(rec.value,'views')+editBtn(rec.id);
+          right=bigNum(rec.metric,rec.value,'views')+editBtn(rec.id);
         }else if(!pd){
           left+='<div style="'+sub+'">Give this task an activity date (the publishing date) to start the '+BLOG_WINDOW_DAYS+' days.</div>';
         }else{
@@ -3371,12 +3490,14 @@ function campaignResultsHtml(camp){
         h+=row(left,right);
       });
     }
-    var others=linked.filter(function(s){return !used[s.id];});
+
+    // Anything else recorded against this campaign (LinkedIn is shown above)
+    var others=linked.filter(function(s){return !used[s.id]&&LI_METRICS.indexOf(s.metric)===-1;});
     if(others.length){
-      h+='<div style="'+sect+(blogs.length?'border-top:1px solid var(--border);':'')+'">Other results</div>';
+      h+='<div style="'+sect+'border-top:1px solid var(--border);">Other results</div>';
       others.forEach(function(s){
         var p=statPeriodText(s);
-        h+=row('<div style="font-size:13px;color:var(--text);">'+esc(s.metric)+'</div><div style="'+sub+'">'+(p?esc(p)+' · ':'')+'recorded '+statDateFmt(s.stat_date)+(s.note?' · '+esc(s.note):'')+'</div>',bigNum(s.value)+editBtn(s.id));
+        h+=row('<div style="font-size:13px;color:var(--text);">'+esc(s.metric)+'</div><div style="'+sub+'">'+(p?esc(p)+' · ':'')+'recorded '+statDateFmt(s.stat_date)+(s.note?' · '+esc(s.note):'')+'</div>',bigNum(s.metric,s.value)+editBtn(s.id));
       });
     }
   }
@@ -3389,20 +3510,198 @@ function addBlogResult(taskId){
   if(!t||!t.due_date)return;
   openStatModal(null,'Blog page views',{campaignId:t.campaign_id,taskId:t.id,from:t.due_date,to:statAddDays(t.due_date,BLOG_WINDOW_DAYS-1),note:t.task});
 }
-// Called after a campaign page has been drawn: loads the stats if they are old/missing, then fills the Results block in place
+// Loads the stats if they are old or missing. One load at a time, even if a page is redrawn several times while it is in flight
 var statsLoadPromise=null;
-async function refreshCampaignResults(campId){
+async function ensureStatsFresh(){
   if(!S.statsLoadedAt||Date.now()-S.statsLoadedAt>15000){
-    // one load at a time, even if the page is redrawn several times while it is in flight
     if(!statsLoadPromise)statsLoadPromise=loadManualStats().then(function(){statsLoadPromise=null;});
     await statsLoadPromise;
   }
+}
+// Called after a campaign page has been drawn: fills the Performance block in place once the numbers are in
+async function refreshCampaignResults(campId){
+  await ensureStatsFresh();
   if(S.activeChannel!=='campaign_'+campId)return;
   var el=document.getElementById('camp-results'),camp=S.campaigns.find(function(x){return x.id===campId;});
   if(!el||!camp)return;
   var html=campaignResultsHtml(camp);
   el.innerHTML=html;
   el.style.display=html?'':'none';
+}
+
+// PERFORMANCE SUMMARY on the campaign cards (Campaigns page and Overview): a few short lines, or "No results recorded yet"
+function campaignPerfHtml(camp){
+  if(!S.statsLoadedAt||S.manualStatsError||!S.statsLinkReady)return '';
+  var rows=S.manualStats.filter(function(s){return s.campaign_id===camp.id;});
+  function line(label,chips){return '<div class="cp-row"><span class="cp-label">'+label+'</span><span class="cp-vals">'+chips.join('')+'</span></div>';}
+  function chip(num,text){return '<span><b>'+num+'</b> '+text+'</span>';}
+  var out=[];
+  var imp=statSeries(rows,LI_IMP)[0],clk=statSeries(rows,LI_CLK)[0],ctr=statSeries(rows,LI_CTR)[0];
+  var ctrVal=ctr?Number(ctr.value):((imp&&clk)?liCalcCtr(imp.value,clk.value):null);
+  var li=[];
+  if(imp)li.push(chip(statFmt(imp.value),'impressions'));
+  if(clk)li.push(chip(statFmt(clk.value),'clicks'));
+  if(ctrVal!=null)li.push(chip(statFmtVal(LI_CTR,ctrVal),'CTR'));
+  if(li.length)out.push(line('LinkedIn',li));
+  // blogs: the newest reading for each post, added together
+  var blogRows=rows.filter(function(s){return s.metric==='Blog page views';}).sort(statNewestFirst);
+  if(blogRows.length){
+    var seen={},sum=0,n=0;
+    blogRows.forEach(function(s){var k=s.task_id?'t:'+s.task_id:'r:'+s.id;if(seen[k])return;seen[k]=1;sum+=Number(s.value);n++;});
+    out.push(line('Blogs',[chip(statFmt(sum),'blog views'),'<span>'+n+(n===1?' post':' posts')+'</span>']));
+  }
+  var others=rows.filter(function(s){return LI_METRICS.indexOf(s.metric)===-1&&s.metric!=='Blog page views';}).length;
+  if(others)out.push(line('Other',[chip(others,others===1?'result':'results')]));
+  return out.length?out.join(''):'<div class="cp-empty">No results recorded yet</div>';
+}
+// the placeholder drawn inside every campaign card; filled straight away if the numbers are already loaded
+function campPerfBand(camp){
+  var html=campaignPerfHtml(camp);
+  return '<div class="camp-perf" data-cid="'+esc(camp.id)+'"'+(html?'':' style="display:none;"')+'>'+html+'</div>';
+}
+async function refreshCampaignPerf(){
+  await ensureStatsFresh();
+  if(S.activeChannel!=='campaigns'&&S.activeChannel!=='overview')return;
+  var els=document.querySelectorAll('.camp-perf[data-cid]');
+  for(var i=0;i<els.length;i++){
+    var el=els[i],id=el.getAttribute('data-cid');
+    var camp=S.campaigns.find(function(x){return x.id===id;});
+    if(!camp)continue;
+    var html=campaignPerfHtml(camp);
+    el.innerHTML=html;
+    el.style.display=html?'':'none';
+  }
+}
+
+// LINKEDIN RESULTS: impressions, clicks and CTR entered together (CTR is worked out for you unless you type over it)
+var liEditIds=null,liCtrManual=false;
+function liNum(id){var raw=document.getElementById(id).value;return raw===''?null:Number(raw);}
+function liCalcCtr(imp,clk){
+  imp=Number(imp);clk=Number(clk);
+  return (isFinite(imp)&&isFinite(clk)&&imp>0)?Math.round(clk/imp*10000)/100:null;
+}
+function liRecalc(){
+  if(liCtrManual)return;
+  var imp=liNum('li-imp'),clk=liNum('li-clk');
+  var c=(imp!=null&&clk!=null)?liCalcCtr(imp,clk):null;
+  document.getElementById('li-ctr').value=c==null?'':String(c);
+}
+function liCtrTyped(){
+  liCtrManual=document.getElementById('li-ctr').value!=='';
+  if(!liCtrManual)liRecalc();
+}
+// the newest impressions / clicks / CTR readings for one campaign ('' means the general, not-linked ones)
+function liLatest(campId){
+  var rows=S.manualStats.filter(function(s){return (s.campaign_id||'')===(campId||'');});
+  return {imp:statSeries(rows,LI_IMP)[0]||null,clk:statSeries(rows,LI_CLK)[0]||null,ctr:statSeries(rows,LI_CTR)[0]||null};
+}
+function liUseCampaignDates(){
+  var id=document.getElementById('li-campaign').value;
+  var camp=S.campaigns.find(function(x){return x.id===id;});
+  if(!camp){toast('Choose a campaign first','error');return;}
+  if(!camp.start_date||!camp.end_date){toast('That campaign has no start and end dates yet','error');return;}
+  document.getElementById('li-from').value=camp.start_date;
+  document.getElementById('li-to').value=camp.end_date;
+}
+function openLiModal(campId,edit){
+  campId=campId||'';
+  liEditIds=null;liCtrManual=false;
+  var linkOn=!!S.statsLinkReady;
+  ['li-imp','li-clk','li-ctr','li-note','li-from','li-to'].forEach(function(id){document.getElementById(id).value='';});
+  document.getElementById('li-date').value=statToday();
+  document.getElementById('li-link-fields').style.display=linkOn?'':'none';
+  if(linkOn)fillStatCampaignOptions(campId,'li-campaign');
+  var title='Add LinkedIn results',editing=false;
+  if(edit){
+    var lat=liLatest(campId);
+    var present=[lat.imp,lat.clk,lat.ctr].filter(Boolean);
+    if(present.length){
+      editing=true;title='Edit LinkedIn results';
+      liEditIds={imp:lat.imp?lat.imp.id:null,clk:lat.clk?lat.clk.id:null,ctr:lat.ctr?lat.ctr.id:null};
+      if(lat.imp)document.getElementById('li-imp').value=lat.imp.value;
+      if(lat.clk)document.getElementById('li-clk').value=lat.clk.value;
+      if(lat.ctr)document.getElementById('li-ctr').value=lat.ctr.value;
+      var newest=present.slice().sort(statNewestFirst)[0];
+      document.getElementById('li-date').value=newest.stat_date;
+      document.getElementById('li-note').value=newest.note||'';
+      if(linkOn){document.getElementById('li-from').value=newest.period_start||'';document.getElementById('li-to').value=newest.period_end||'';}
+      // a CTR that differs from clicks ÷ impressions was typed in on purpose, so it is kept when the other boxes change
+      var calc=(lat.imp&&lat.clk)?liCalcCtr(lat.imp.value,lat.clk.value):null;
+      liCtrManual=!!lat.ctr&&(calc==null||Math.abs(Number(lat.ctr.value)-calc)>0.005);
+    }
+  }
+  document.getElementById('liModalTitle').textContent=title;
+  document.getElementById('li-delete').style.display=editing?'':'none';
+  document.getElementById('liModal').style.display='flex';
+  setTimeout(function(){var f=document.getElementById('li-imp');if(f)f.focus();},50);
+}
+function closeLiModal(){
+  document.getElementById('liModal').style.display='none';
+  liEditIds=null;
+}
+async function saveLi(){
+  var imp=liNum('li-imp'),clk=liNum('li-clk'),ctr=liNum('li-ctr');
+  var date=document.getElementById('li-date').value,note=document.getElementById('li-note').value.trim();
+  var vals=[imp,clk,ctr];
+  if(vals.every(function(v){return v==null;})){toast('Enter at least one number: impressions, clicks or CTR','error');document.getElementById('li-imp').focus();return;}
+  if(vals.some(function(v){return v!=null&&!isFinite(v);})){toast('Enter numbers only','error');return;}
+  if(vals.some(function(v){return v!=null&&v<0;})){toast('Numbers cannot be negative','error');return;}
+  if(imp!=null&&clk!=null&&clk>imp){toast('Clicks cannot be higher than impressions. Check the two boxes are the right way round.','error');return;}
+  if(ctr!=null&&ctr>100){toast('CTR is a percentage, so it cannot be more than 100','error');return;}
+  if(!date){toast('Pick a date','error');return;}
+  var campaignId='',from='',to='';
+  if(S.statsLinkReady){
+    campaignId=document.getElementById('li-campaign').value;
+    from=document.getElementById('li-from').value;
+    to=document.getElementById('li-to').value;
+    if((from&&!to)||(to&&!from)){toast('Fill in both "Covers" dates, or leave both empty','error');return;}
+    if(from&&to&&to<from){toast('The end date is before the start date','error');return;}
+  }
+  if(ctr==null&&imp!=null&&clk!=null)ctr=liCalcCtr(imp,clk);
+  function payloadFor(metric,value){
+    var p={metric:metric,value:value,stat_date:date,note:note};
+    if(S.statsLinkReady){p.campaign_id=campaignId||null;p.task_id=null;p.period_start=from||null;p.period_end=to||null;}
+    return p;
+  }
+  var wanted=[['imp',LI_IMP,imp],['clk',LI_CLK,clk],['ctr',LI_CTR,ctr]];
+  if(!liEditIds){
+    // new reading: all the numbers in one go
+    var rows=wanted.filter(function(x){return x[2]!=null;}).map(function(x){return payloadFor(x[1],x[2]);});
+    var res=await db.from('manual_stats').insert(rows).select();
+    if(res.error){statErrorToast(res.error);return;}
+    if(!res.data||!res.data.length){toast('Not saved. Supabase did not accept it, so run the setup SQL again (including the policy line).','error');return;}
+    S.manualStats=res.data.concat(S.manualStats);S.manualStatsError=false;
+    closeLiModal();statRefresh();toast('LinkedIn results added');
+    return;
+  }
+  // editing the latest numbers: update what is there, add what is new, remove what was cleared
+  var ids=liEditIds,ops=[];
+  wanted.forEach(function(x){
+    var id=ids[x[0]];
+    if(x[2]!=null)ops.push(id?db.from('manual_stats').update(payloadFor(x[1],x[2])).eq('id',id).select():db.from('manual_stats').insert(payloadFor(x[1],x[2])).select());
+    else if(id)ops.push(db.from('manual_stats').delete().eq('id',id).select());
+  });
+  var results=await Promise.all(ops);
+  var bad=results.filter(function(r){return r.error||!r.data||!r.data.length;})[0];
+  await loadManualStats();
+  if(bad){
+    if(bad.error)statErrorToast(bad.error);
+    else toast('Not saved. Supabase did not accept it, so run the setup SQL again (including the policy line).','error');
+    statRefresh();
+    return;
+  }
+  closeLiModal();statRefresh();toast('LinkedIn results updated');
+}
+async function deleteLiSet(){
+  if(!liEditIds)return;
+  var ids=[liEditIds.imp,liEditIds.clk,liEditIds.ctr].filter(Boolean);
+  if(!confirm('Delete these LinkedIn numbers?'))return;
+  var results=await Promise.all(ids.map(function(id){return db.from('manual_stats').delete().eq('id',id).select();}));
+  var bad=results.some(function(r){return r.error||!r.data||!r.data.length;});
+  await loadManualStats();
+  closeLiModal();statRefresh();
+  if(bad)toast('Could not delete everything. Refresh the page and check.','error');
+  else toast('LinkedIn numbers deleted');
 }
 
 async function duplicateCampaign(id){
@@ -3901,6 +4200,7 @@ document.addEventListener('keydown',e=>{
     document.getElementById('reportModal').style.display='none';
     document.getElementById('quickTaskModal').style.display='none';
     document.getElementById('statModal').style.display='none';
+    document.getElementById('liModal').style.display='none';
     if(S.searchQuery){S.searchQuery='';document.getElementById('globalSearch').value='';render();}
   }
   if((e.metaKey||e.ctrlKey)&&e.key==='k'){e.preventDefault();openAddModal();}
